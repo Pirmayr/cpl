@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-const int chrAmpersand = 38;
+const int chrAmpersand = '&';
 const int chrApostrophe = 39;
 const int chrAsterisk = '*';
 const int chrDel = 127;
