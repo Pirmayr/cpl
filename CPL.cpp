@@ -5,7 +5,7 @@ const int chrAmpersand = '&';
 const int chrApostrophe = 39;
 const int chrAsterisk = '*';
 const int chrDel = 127;
-const int chrEquals = 61;
+const int chrEquals = '=';
 const int chrExclamationMark = 33;
 const int chrGreater = 62;
 const int chrHash = 35;
@@ -84,6 +84,7 @@ static int curSym;
 static int curTok;
 static int curVal;
 static int funIdx;
+static int hasInit;
 static int i;
 static int j;
 static int labStack[labStackLen];
@@ -98,6 +99,7 @@ static int minusOne;
 static int op;
 static int reg;
 static int result;
+static char testText[] = "hello";
 
 static int Fail()
 {
@@ -542,6 +544,21 @@ static void EmtPushTosInd()
   EmtPushRegInd();
 }
 
+static void EmtStr()
+{
+  putchar(' ');
+  i = 0;
+  limit = namTab[namIdx + 1];
+  while (i < limit)
+  {
+    curVal = namTab[namIdx + i + 2];
+    EmtVal();
+    putchar(',');
+    i = i + 1;
+  }
+  putchar('0');
+}
+
 static void AddChr()
 {
   namTab[namTos + 1] = namTab[namTos + 1] + 1;
@@ -931,6 +948,14 @@ static void Init()
   curChr = 'i'; AddCurChr();
   curChr = 'n'; AddCurChr();
   curChr = 't'; AddCurChr();
+  curSym = symKeyword;
+  curVal = tokInt;
+  SetSym();
+
+  curChr = 'c'; AddCurChr();
+  curChr = 'h'; AddCurChr();
+  curChr = 'a'; AddCurChr();
+  curChr = 'r'; AddCurChr();
   curSym = symKeyword;
   curVal = tokInt;
   SetSym();
@@ -1383,6 +1408,7 @@ static void ParseDefinition()
     curVal = 1;
     if (curTok == tokLBracket)
     {
+      curVal = 0;
       RdTok();
       if (curTok == tokNumber)
       {
@@ -1393,11 +1419,26 @@ static void ParseDefinition()
         RdTok();
       }
     }
+    hasInit = 0;
+    if (curTok == tokAssign)
+    {
+      hasInit = 1;
+      RdTok();
+      if (curTok != tokString)
+      {
+        Fail();
+      }
+      EmtStr();
+      RdTok();
+    }
     if (curTok != tokSemicolon)
     {
       Fail();
     }
-    EmtDup(); 
+    if (hasInit == 0)
+    {
+      EmtDup(); 
+    }
     putchar(10);
     RdTok();
   }
