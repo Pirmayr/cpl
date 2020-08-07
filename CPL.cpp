@@ -32,7 +32,7 @@ const int chrUpperZ = 90;
 const int chrZero = 48;
 const int eof = 0;
 const int labStackLen = 1000;
-const int namTabLen = 20000;
+const int namTabLen = 5000;
 const int symConst = 3;
 const int symFun = 1;
 const int symKeyword = 4;
@@ -99,7 +99,9 @@ static int minusOne;
 static int op;
 static int reg;
 static int result;
-static char testText[] = "hello";
+static char* txt;
+static char strDatSeg[] = "section '.data' data readable writeable";
+static char strTxtSeg[] = "section '.text' code readable executable";
 
 static int Fail()
 {
@@ -135,6 +137,16 @@ static void PopLab()
 static int LabTop()
 {
   return labStack[labTos];
+}
+
+static void EmtTxt()
+{
+  i = 0;
+  while (txt[i] != 0)
+  {
+    putchar(txt[i]);
+    i = i + 1;
+  }
 }
 
 static void EmtCall()
@@ -206,12 +218,12 @@ static void EmtVal()
 
 static void EmtDcl()
 {
-  EmtNam(); putchar(' '); putchar('d'); putchar('d');
+  EmtNam(); putchar(' '); putchar('d'); putchar('d'); putchar(' ');
 }
 
 static void EmtDup()
 {
-  putchar(' '); EmtVal(); putchar(' '); putchar('d'); putchar('u'); putchar('p'); putchar('('); putchar('?'); putchar(')');
+  EmtVal(); putchar(' '); putchar('d'); putchar('u'); putchar('p'); putchar('('); putchar('?'); putchar(')');
 }
 
 static void EmtFun()
@@ -221,12 +233,12 @@ static void EmtFun()
 
 static void EmtDatSeg()
 {
-  putchar(115);putchar(101);putchar(99);putchar(116);putchar(105);putchar(111);putchar(110);putchar(32);putchar(39);putchar(46);putchar(100);putchar(97);putchar(116);putchar(97);putchar(39);putchar(32);putchar(100);putchar(97);putchar(116);putchar(97);putchar(32);putchar(114);putchar(101);putchar(97);putchar(100);putchar(97);putchar(98);putchar(108);putchar(101);putchar(32);putchar(119);putchar(114);putchar(105);putchar(116);putchar(101);putchar(97);putchar(98);putchar(108);putchar(101);putchar(10);
+  txt = strDatSeg; EmtTxt(); putchar(10);
 }
 
 static void EmtTxtSeg()
 {
-  putchar(115);putchar(101);putchar(99);putchar(116);putchar(105);putchar(111);putchar(110);putchar(32);putchar(39);putchar(46);putchar(116);putchar(101);putchar(120);putchar(116);putchar(39);putchar(32);putchar(99);putchar(111);putchar(100);putchar(101);putchar(32);putchar(114);putchar(101);putchar(97);putchar(100);putchar(97);putchar(98);putchar(108);putchar(101);putchar(32);putchar(101);putchar(120);putchar(101);putchar(99);putchar(117);putchar(116);putchar(97);putchar(98);putchar(108);putchar(101);putchar(10);
+  txt = strTxtSeg; EmtTxt(); putchar(10);
 }
 
 static void EmtHdr()
@@ -544,19 +556,23 @@ static void EmtPushTosInd()
   EmtPushRegInd();
 }
 
-static void EmtStr()
+static void EmtStrInt()
 {
-  putchar(' ');
   i = 0;
-  limit = namTab[namIdx + 1];
+  limit = namTab[namTos + 1];
   while (i < limit)
   {
-    curVal = namTab[namIdx + i + 2];
+    curVal = namTab[namTos + i + 2];
     EmtVal();
     putchar(',');
     i = i + 1;
   }
   putchar('0');
+}
+
+static void EmtArrAddr()
+{
+  putchar('$'); putchar('+'); putchar('4'); putchar(',');
 }
 
 static void AddChr()
@@ -1059,6 +1075,7 @@ static void ParseExpression()
     RdTok();
     if (curTok == tokLBracket)
     {
+      EmtPushTosInd();
       RdTok();
       ParseExpression();
       if (curTok != tokRBracket)
@@ -1205,6 +1222,7 @@ static void ParseBlock()
       RdTok();
       if (curTok == tokLBracket)
       {
+        EmtPushTosInd();
         RdTok();
         ParseExpression();
         if (curTok != tokRBracket)
@@ -1379,6 +1397,10 @@ static void ParseDefinition()
     if ((curTok == tokVoid) || (curTok == tokInt))
     {
       RdTok();
+      if (curTok == tokMul)
+      {
+        RdTok();
+      }
     }
     if (curTok != tokName)
     {
@@ -1409,6 +1431,7 @@ static void ParseDefinition()
     if (curTok == tokLBracket)
     {
       curVal = 0;
+      EmtArrAddr();
       RdTok();
       if (curTok == tokNumber)
       {
@@ -1428,7 +1451,7 @@ static void ParseDefinition()
       {
         Fail();
       }
-      EmtStr();
+      EmtStrInt();
       RdTok();
     }
     if (curTok != tokSemicolon)
