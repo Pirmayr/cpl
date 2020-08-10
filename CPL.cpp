@@ -4,6 +4,7 @@
 const int chrAmpersand = '&';
 const int chrApostrophe = 39;
 const int chrAsterisk = '*';
+const int chrBackslash = 92;
 const int chrDel = 127;
 const int chrEquals = '=';
 const int chrExclamationMark = 33;
@@ -94,19 +95,48 @@ static int namIdx;
 static int namTab[namTabLen];
 static int namTos;
 static int num;
+static int nxtChr;
 static int nxtLab;
 static int minusOne;
 static int op;
 static int reg;
 static int result;
-static char* txt;
-static char strDatSeg[] = "section '.data' data readable writeable";
-static char strTxtSeg[] = "section '.text' code readable executable";
+static char datSeg[] = "section '.data' data readable writeable";
+static char txtSeg[] = "section '.text' code readable executable";
+static char hdr[] = "format PE Console\nentry start\nsection '.idata' import data readable writeable\ndd 0\ndd 0\ndd 0\ndd rva kernelName\ndd rva kernelTable\ndd 0\ndd 0\ndd 0\ndd 0\ndd 0\nkernelTable:\nExitProcess dd rva exitProcess\nGetConsoleMode dd rva getConsoleMode\nSetConsoleMode dd rva setConsoleMode\nReadFile dd rva readFile\nWriteFile dd rva writeFile\nGetStdHandle dd rva getStdHandle\ndd 0\nkernelName:\ndb 'KERNEL32.DLL',0\nexitProcess:\ndw 0\ndb 'ExitProcess',0\ngetConsoleMode:\ndw 0\ndb 'GetConsoleMode',0\nsetConsoleMode:\ndw 0\ndb 'SetConsoleMode',0\nreadFile:\ndw 0\ndb 'ReadFile',0\nwriteFile:\ndw 0\ndb 'WriteFile',0\ngetStdHandle:\ndw 0\ndb 'GetStdHandle',0\nsection '.data' data readable writeable\nstdInHandle dd ?\nstdOutHandle dd ?\nconsoleMode dd ?\nioChr db ?\nbytesCount dd ?\nsection '.text' code readable executable\nexit:\ncall [ExitProcess]\ngetchar:\npush ebp\nmov ebp, esp\nmov [ioChr], 0\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdInHandle]\ncall [ReadFile]\nmov eax, 0\nmov al, [ioChr]\npop ebp\nret 0 \nputchar:\npush ebp\nmov ebp, esp\nmov eax, [ebp + 8]\nmov [ioChr], al\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdOutHandle]\ncall [WriteFile]\npop ebp\nret 4 \nstart:\npush 0FFFFFFF6h\ncall [GetStdHandle]\nmov [stdInHandle], eax \npush 0FFFFFFF5h\ncall [GetStdHandle]\nmov [stdOutHandle], eax \npush consoleMode\npush [stdInHandle]\ncall [GetConsoleMode]\nmov eax, [consoleMode]\nand eax, 0FFFFFFFDh\npush eax\npush [stdInHandle]\ncall [SetConsoleMode]\ncall main\npush 0\ncall [ExitProcess]\n";
 
 static int Fail()
 {
   putchar('f'); putchar('a'); putchar('i'); putchar('l'); putchar(10); 
   exit(1);
+}
+
+static char* txt;
+static char curTxtChr;
+static int curTxtIdx;
+
+void EmtTxt()
+{
+  curTxtIdx = 0;
+  while (1)
+  {
+    curTxtChr = txt[curTxtIdx];
+    if (!curTxtChr)
+    {
+      return;
+    }
+    if (curTxtChr == chrBackslash)
+    {
+      curTxtIdx = curTxtIdx + 1;
+      curTxtChr = txt[curTxtIdx];
+      if (curTxtChr == 'n')
+      {
+        curTxtChr = 10;
+      }
+    }
+    putchar(curTxtChr);
+    curTxtIdx = curTxtIdx + 1;
+  }
 }
 
 void NumToBuf()
@@ -137,16 +167,6 @@ static void PopLab()
 static int LabTop()
 {
   return labStack[labTos];
-}
-
-static void EmtTxt()
-{
-  i = 0;
-  while (txt[i] != 0)
-  {
-    putchar(txt[i]);
-    i = i + 1;
-  }
 }
 
 static void EmtCall()
@@ -233,111 +253,17 @@ static void EmtFun()
 
 static void EmtDatSeg()
 {
-  txt = strDatSeg; EmtTxt(); putchar(10);
+  txt = datSeg; EmtTxt(); putchar(10);
 }
 
 static void EmtTxtSeg()
 {
-  txt = strTxtSeg; EmtTxt(); putchar(10);
+  txt = txtSeg; EmtTxt(); putchar(10);
 }
 
 static void EmtHdr()
 {
-  putchar(102);putchar(111);putchar(114);putchar(109);putchar(97);putchar(116);putchar(32);putchar(80);putchar(69);putchar(32);putchar(67);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(10);
-  putchar(101);putchar(110);putchar(116);putchar(114);putchar(121);putchar(32);putchar(115);putchar(116);putchar(97);putchar(114);putchar(116);putchar(10);
-  putchar(115);putchar(101);putchar(99);putchar(116);putchar(105);putchar(111);putchar(110);putchar(32);putchar(39);putchar(46);putchar(105);putchar(100);putchar(97);putchar(116);putchar(97);putchar(39);putchar(32);putchar(105);putchar(109);putchar(112);putchar(111);putchar(114);putchar(116);putchar(32);putchar(100);putchar(97);putchar(116);putchar(97);putchar(32);putchar(114);putchar(101);putchar(97);putchar(100);putchar(97);putchar(98);putchar(108);putchar(101);putchar(32);putchar(119);putchar(114);putchar(105);putchar(116);putchar(101);putchar(97);putchar(98);putchar(108);putchar(101);putchar(10);
-  putchar(100);putchar(100);putchar(32);putchar(48);putchar(10);
-  putchar(100);putchar(100);putchar(32);putchar(48);putchar(10);
-  putchar(100);putchar(100);putchar(32);putchar(48);putchar(10);
-  putchar(100);putchar(100);putchar(32);putchar(114);putchar(118);putchar(97);putchar(32);putchar(107);putchar(101);putchar(114);putchar(110);putchar(101);putchar(108);putchar(78);putchar(97);putchar(109);putchar(101);putchar(10);
-  putchar(100);putchar(100);putchar(32);putchar(114);putchar(118);putchar(97);putchar(32);putchar(107);putchar(101);putchar(114);putchar(110);putchar(101);putchar(108);putchar(84);putchar(97);putchar(98);putchar(108);putchar(101);putchar(10);
-  putchar(100);putchar(100);putchar(32);putchar(48);putchar(10);
-  putchar(100);putchar(100);putchar(32);putchar(48);putchar(10);
-  putchar(100);putchar(100);putchar(32);putchar(48);putchar(10);
-  putchar(100);putchar(100);putchar(32);putchar(48);putchar(10);
-  putchar(100);putchar(100);putchar(32);putchar(48);putchar(10);
-  putchar(107);putchar(101);putchar(114);putchar(110);putchar(101);putchar(108);putchar(84);putchar(97);putchar(98);putchar(108);putchar(101);putchar(58);putchar(10);
-  putchar(69);putchar(120);putchar(105);putchar(116);putchar(80);putchar(114);putchar(111);putchar(99);putchar(101);putchar(115);putchar(115);putchar(32);putchar(100);putchar(100);putchar(32);putchar(114);putchar(118);putchar(97);putchar(32);putchar(101);putchar(120);putchar(105);putchar(116);putchar(80);putchar(114);putchar(111);putchar(99);putchar(101);putchar(115);putchar(115);putchar(10);
-  putchar(71);putchar(101);putchar(116);putchar(67);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(77);putchar(111);putchar(100);putchar(101);putchar(32);putchar(100);putchar(100);putchar(32);putchar(114);putchar(118);putchar(97);putchar(32);putchar(103);putchar(101);putchar(116);putchar(67);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(77);putchar(111);putchar(100);putchar(101);putchar(10);
-  putchar(83);putchar(101);putchar(116);putchar(67);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(77);putchar(111);putchar(100);putchar(101);putchar(32);putchar(100);putchar(100);putchar(32);putchar(114);putchar(118);putchar(97);putchar(32);putchar(115);putchar(101);putchar(116);putchar(67);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(77);putchar(111);putchar(100);putchar(101);putchar(10);
-  putchar(82);putchar(101);putchar(97);putchar(100);putchar(70);putchar(105);putchar(108);putchar(101);putchar(32);putchar(100);putchar(100);putchar(32);putchar(114);putchar(118);putchar(97);putchar(32);putchar(114);putchar(101);putchar(97);putchar(100);putchar(70);putchar(105);putchar(108);putchar(101);putchar(10);
-  putchar(87);putchar(114);putchar(105);putchar(116);putchar(101);putchar(70);putchar(105);putchar(108);putchar(101);putchar(32);putchar(100);putchar(100);putchar(32);putchar(114);putchar(118);putchar(97);putchar(32);putchar(119);putchar(114);putchar(105);putchar(116);putchar(101);putchar(70);putchar(105);putchar(108);putchar(101);putchar(10);
-  putchar(71);putchar(101);putchar(116);putchar(83);putchar(116);putchar(100);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(32);putchar(100);putchar(100);putchar(32);putchar(114);putchar(118);putchar(97);putchar(32);putchar(103);putchar(101);putchar(116);putchar(83);putchar(116);putchar(100);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(10);
-  putchar(100);putchar(100);putchar(32);putchar(48);putchar(10);
-  putchar(107);putchar(101);putchar(114);putchar(110);putchar(101);putchar(108);putchar(78);putchar(97);putchar(109);putchar(101);putchar(58);putchar(10);
-  putchar(100);putchar(98);putchar(32);putchar(39);putchar(75);putchar(69);putchar(82);putchar(78);putchar(69);putchar(76);putchar(51);putchar(50);putchar(46);putchar(68);putchar(76);putchar(76);putchar(39);putchar(44);putchar(48);putchar(10);
-  putchar(101);putchar(120);putchar(105);putchar(116);putchar(80);putchar(114);putchar(111);putchar(99);putchar(101);putchar(115);putchar(115);putchar(58);putchar(10);
-  putchar(100);putchar(119);putchar(32);putchar(48);putchar(10);
-  putchar(100);putchar(98);putchar(32);putchar(39);putchar(69);putchar(120);putchar(105);putchar(116);putchar(80);putchar(114);putchar(111);putchar(99);putchar(101);putchar(115);putchar(115);putchar(39);putchar(44);putchar(48);putchar(10);
-  putchar(103);putchar(101);putchar(116);putchar(67);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(77);putchar(111);putchar(100);putchar(101);putchar(58);putchar(10);
-  putchar(100);putchar(119);putchar(32);putchar(48);putchar(10);
-  putchar(100);putchar(98);putchar(32);putchar(39);putchar(71);putchar(101);putchar(116);putchar(67);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(77);putchar(111);putchar(100);putchar(101);putchar(39);putchar(44);putchar(48);putchar(10);
-  putchar(115);putchar(101);putchar(116);putchar(67);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(77);putchar(111);putchar(100);putchar(101);putchar(58);putchar(10);
-  putchar(100);putchar(119);putchar(32);putchar(48);putchar(10);
-  putchar(100);putchar(98);putchar(32);putchar(39);putchar(83);putchar(101);putchar(116);putchar(67);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(77);putchar(111);putchar(100);putchar(101);putchar(39);putchar(44);putchar(48);putchar(10);
-  putchar(114);putchar(101);putchar(97);putchar(100);putchar(70);putchar(105);putchar(108);putchar(101);putchar(58);putchar(10);
-  putchar(100);putchar(119);putchar(32);putchar(48);putchar(10);
-  putchar(100);putchar(98);putchar(32);putchar(39);putchar(82);putchar(101);putchar(97);putchar(100);putchar(70);putchar(105);putchar(108);putchar(101);putchar(39);putchar(44);putchar(48);putchar(10);
-  putchar(119);putchar(114);putchar(105);putchar(116);putchar(101);putchar(70);putchar(105);putchar(108);putchar(101);putchar(58);putchar(10);
-  putchar(100);putchar(119);putchar(32);putchar(48);putchar(10);
-  putchar(100);putchar(98);putchar(32);putchar(39);putchar(87);putchar(114);putchar(105);putchar(116);putchar(101);putchar(70);putchar(105);putchar(108);putchar(101);putchar(39);putchar(44);putchar(48);putchar(10);
-  putchar(103);putchar(101);putchar(116);putchar(83);putchar(116);putchar(100);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(58);putchar(10);
-  putchar(100);putchar(119);putchar(32);putchar(48);putchar(10);
-  putchar(100);putchar(98);putchar(32);putchar(39);putchar(71);putchar(101);putchar(116);putchar(83);putchar(116);putchar(100);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(39);putchar(44);putchar(48);putchar(10);
-  putchar(115);putchar(101);putchar(99);putchar(116);putchar(105);putchar(111);putchar(110);putchar(32);putchar(39);putchar(46);putchar(100);putchar(97);putchar(116);putchar(97);putchar(39);putchar(32);putchar(100);putchar(97);putchar(116);putchar(97);putchar(32);putchar(114);putchar(101);putchar(97);putchar(100);putchar(97);putchar(98);putchar(108);putchar(101);putchar(32);putchar(119);putchar(114);putchar(105);putchar(116);putchar(101);putchar(97);putchar(98);putchar(108);putchar(101);putchar(10);
-  putchar(115);putchar(116);putchar(100);putchar(73);putchar(110);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(32);putchar(100);putchar(100);putchar(32);putchar(63);putchar(10);
-  putchar(115);putchar(116);putchar(100);putchar(79);putchar(117);putchar(116);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(32);putchar(100);putchar(100);putchar(32);putchar(63);putchar(10);
-  putchar(99);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(77);putchar(111);putchar(100);putchar(101);putchar(32);putchar(100);putchar(100);putchar(32);putchar(63);putchar(10);
-  putchar(105);putchar(111);putchar(67);putchar(104);putchar(114);putchar(32);putchar(100);putchar(98);putchar(32);putchar(63);putchar(10);
-  putchar(98);putchar(121);putchar(116);putchar(101);putchar(115);putchar(67);putchar(111);putchar(117);putchar(110);putchar(116);putchar(32);putchar(100);putchar(100);putchar(32);putchar(63);putchar(10);
-  putchar(115);putchar(101);putchar(99);putchar(116);putchar(105);putchar(111);putchar(110);putchar(32);putchar(39);putchar(46);putchar(116);putchar(101);putchar(120);putchar(116);putchar(39);putchar(32);putchar(99);putchar(111);putchar(100);putchar(101);putchar(32);putchar(114);putchar(101);putchar(97);putchar(100);putchar(97);putchar(98);putchar(108);putchar(101);putchar(32);putchar(101);putchar(120);putchar(101);putchar(99);putchar(117);putchar(116);putchar(97);putchar(98);putchar(108);putchar(101);putchar(10);
-  putchar(101);putchar(120);putchar(105);putchar(116);putchar(58);putchar(10);
-  putchar(99);putchar(97);putchar(108);putchar(108);putchar(32);putchar(91);putchar(69);putchar(120);putchar(105);putchar(116);putchar(80);putchar(114);putchar(111);putchar(99);putchar(101);putchar(115);putchar(115);putchar(93);putchar(10);
-  putchar(103);putchar(101);putchar(116);putchar(99);putchar(104);putchar(97);putchar(114);putchar(58);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(101);putchar(98);putchar(112);putchar(10);
-  putchar(109);putchar(111);putchar(118);putchar(32);putchar(101);putchar(98);putchar(112);putchar(44);putchar(32);putchar(101);putchar(115);putchar(112);putchar(10);
-  putchar(109);putchar(111);putchar(118);putchar(32);putchar(91);putchar(105);putchar(111);putchar(67);putchar(104);putchar(114);putchar(93);putchar(44);putchar(32);putchar(48);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(48);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(98);putchar(121);putchar(116);putchar(101);putchar(115);putchar(67);putchar(111);putchar(117);putchar(110);putchar(116);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(49);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(105);putchar(111);putchar(67);putchar(104);putchar(114);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(91);putchar(115);putchar(116);putchar(100);putchar(73);putchar(110);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(93);putchar(10);
-  putchar(99);putchar(97);putchar(108);putchar(108);putchar(32);putchar(91);putchar(82);putchar(101);putchar(97);putchar(100);putchar(70);putchar(105);putchar(108);putchar(101);putchar(93);putchar(10);
-  putchar(109);putchar(111);putchar(118);putchar(32);putchar(101);putchar(97);putchar(120);putchar(44);putchar(32);putchar(48);putchar(10);
-  putchar(109);putchar(111);putchar(118);putchar(32);putchar(97);putchar(108);putchar(44);putchar(32);putchar(91);putchar(105);putchar(111);putchar(67);putchar(104);putchar(114);putchar(93);putchar(10);
-  putchar(112);putchar(111);putchar(112);putchar(32);putchar(101);putchar(98);putchar(112);putchar(10);
-  putchar(114);putchar(101);putchar(116);putchar(32);putchar(48);putchar(32);putchar(10);
-  putchar(112);putchar(117);putchar(116);putchar(99);putchar(104);putchar(97);putchar(114);putchar(58);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(101);putchar(98);putchar(112);putchar(10);
-  putchar(109);putchar(111);putchar(118);putchar(32);putchar(101);putchar(98);putchar(112);putchar(44);putchar(32);putchar(101);putchar(115);putchar(112);putchar(10);
-  putchar(109);putchar(111);putchar(118);putchar(32);putchar(101);putchar(97);putchar(120);putchar(44);putchar(32);putchar(91);putchar(101);putchar(98);putchar(112);putchar(32);putchar(43);putchar(32);putchar(56);putchar(93);putchar(10);
-  putchar(109);putchar(111);putchar(118);putchar(32);putchar(91);putchar(105);putchar(111);putchar(67);putchar(104);putchar(114);putchar(93);putchar(44);putchar(32);putchar(97);putchar(108);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(48);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(98);putchar(121);putchar(116);putchar(101);putchar(115);putchar(67);putchar(111);putchar(117);putchar(110);putchar(116);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(49);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(105);putchar(111);putchar(67);putchar(104);putchar(114);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(91);putchar(115);putchar(116);putchar(100);putchar(79);putchar(117);putchar(116);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(93);putchar(10);
-  putchar(99);putchar(97);putchar(108);putchar(108);putchar(32);putchar(91);putchar(87);putchar(114);putchar(105);putchar(116);putchar(101);putchar(70);putchar(105);putchar(108);putchar(101);putchar(93);putchar(10);
-  putchar(112);putchar(111);putchar(112);putchar(32);putchar(101);putchar(98);putchar(112);putchar(10);
-  putchar(114);putchar(101);putchar(116);putchar(32);putchar(52);putchar(32);putchar(10);
-  putchar(115);putchar(116);putchar(97);putchar(114);putchar(116);putchar(58);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(48);putchar(70);putchar(70);putchar(70);putchar(70);putchar(70);putchar(70);putchar(70);putchar(54);putchar(104);putchar(10);
-  putchar(99);putchar(97);putchar(108);putchar(108);putchar(32);putchar(91);putchar(71);putchar(101);putchar(116);putchar(83);putchar(116);putchar(100);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(93);putchar(10);
-  putchar(109);putchar(111);putchar(118);putchar(32);putchar(91);putchar(115);putchar(116);putchar(100);putchar(73);putchar(110);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(93);putchar(44);putchar(32);putchar(101);putchar(97);putchar(120);putchar(32);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(48);putchar(70);putchar(70);putchar(70);putchar(70);putchar(70);putchar(70);putchar(70);putchar(53);putchar(104);putchar(10);
-  putchar(99);putchar(97);putchar(108);putchar(108);putchar(32);putchar(91);putchar(71);putchar(101);putchar(116);putchar(83);putchar(116);putchar(100);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(93);putchar(10);
-  putchar(109);putchar(111);putchar(118);putchar(32);putchar(91);putchar(115);putchar(116);putchar(100);putchar(79);putchar(117);putchar(116);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(93);putchar(44);putchar(32);putchar(101);putchar(97);putchar(120);putchar(32);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(99);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(77);putchar(111);putchar(100);putchar(101);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(91);putchar(115);putchar(116);putchar(100);putchar(73);putchar(110);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(93);putchar(10);
-  putchar(99);putchar(97);putchar(108);putchar(108);putchar(32);putchar(91);putchar(71);putchar(101);putchar(116);putchar(67);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(77);putchar(111);putchar(100);putchar(101);putchar(93);putchar(10);
-  putchar(109);putchar(111);putchar(118);putchar(32);putchar(101);putchar(97);putchar(120);putchar(44);putchar(32);putchar(91);putchar(99);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(77);putchar(111);putchar(100);putchar(101);putchar(93);putchar(10);
-  putchar(97);putchar(110);putchar(100);putchar(32);putchar(101);putchar(97);putchar(120);putchar(44);putchar(32);putchar(48);putchar(70);putchar(70);putchar(70);putchar(70);putchar(70);putchar(70);putchar(70);putchar(68);putchar(104);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(101);putchar(97);putchar(120);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(91);putchar(115);putchar(116);putchar(100);putchar(73);putchar(110);putchar(72);putchar(97);putchar(110);putchar(100);putchar(108);putchar(101);putchar(93);putchar(10);
-  putchar(99);putchar(97);putchar(108);putchar(108);putchar(32);putchar(91);putchar(83);putchar(101);putchar(116);putchar(67);putchar(111);putchar(110);putchar(115);putchar(111);putchar(108);putchar(101);putchar(77);putchar(111);putchar(100);putchar(101);putchar(93);putchar(10);
-  putchar(99);putchar(97);putchar(108);putchar(108);putchar(32);putchar(109);putchar(97);putchar(105);putchar(110);putchar(10);
-  putchar(112);putchar(117);putchar(115);putchar(104);putchar(32);putchar(48);putchar(10);
-  putchar(99);putchar(97);putchar(108);putchar(108);putchar(32);putchar(91);putchar(69);putchar(120);putchar(105);putchar(116);putchar(80);putchar(114);putchar(111);putchar(99);putchar(101);putchar(115);putchar(115);putchar(93);putchar(10);
+  txt = hdr; EmtTxt();
 }
 
 static void EmtOp()
@@ -837,6 +763,14 @@ static void RdTok()
     curChr = GetChr();
     while ((curChr != eof) && (curChr != chrQuote))
     {
+      if (curChr == chrBackslash)
+      {
+        curChr = GetChr();
+        if (curChr == 'n')
+        {
+          curChr = 10;
+        }
+      }
       AddCurChr();
       curChr = GetChr();
     }
