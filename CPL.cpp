@@ -1,12 +1,13 @@
 #include <cstdio>
 #include <cstdlib>
 
-const int chrAmpersand = '&';
+const int chrAmpersand = 38;
 const int chrApostrophe = 39;
-const int chrAsterisk = '*';
+const int chrAsterisk = 42;
 const int chrBackslash = 92;
 const int chrDel = 127;
-const int chrEquals = '=';
+const int chrDollar = 36;
+const int chrEquals = 61;
 const int chrExclamationMark = 33;
 const int chrGreater = 62;
 const int chrHash = 35;
@@ -18,7 +19,7 @@ const int chrLowerZ = 122;
 const int chrLParen = 40;
 const int chrMinus = 45;
 const int chrNine = 57;
-const int chrPercent = '%';
+const int chrPercent = 37;
 const int chrPipe = 124;
 const int chrPlus = 43;
 const int chrQuote = 34;
@@ -26,14 +27,14 @@ const int chrRBrace = 125;
 const int chrRBracket = 93;
 const int chrRParen = 41;
 const int chrSemicolon = 59;
-const int chrSlash = '/';
+const int chrSlash = 47;
 const int chrSpace = 32;
 const int chrUpperA = 65;
 const int chrUpperZ = 90;
 const int chrZero = 48;
 const int eof = 0;
-const int labStackLen = 1000;
-const int namTabLen = 5000;
+const int valuesSize = 1000;
+const int namesSize = 5000;
 const int symConst = 3;
 const int symFun = 1;
 const int symKeyword = 4;
@@ -77,8 +78,26 @@ const int tokVar = 32;
 const int tokVoid = 29;
 const int tokWhile = 24;
 
-static int buf[12];
-static int bufIdx;
+static char addIdx[] = "pop ebx\npop eax\nlea eax,[eax+4*ebx]\npush eax\n";
+static char curTxtChr;
+static char datSeg[] = "section '.data' data readable writeable";
+static char hdr[] = "format PE Console\nentry start\nsection '.idata' import data readable writeable\ndd 0\ndd 0\ndd 0\ndd rva kernelName\ndd rva kernelTable\ndd 0\ndd 0\ndd 0\ndd 0\ndd 0\nkernelTable:\nExitProcess dd rva exitProcess\nReadFile dd rva readFile\nWriteFile dd rva writeFile\nGetStdHandle dd rva getStdHandle\ndd 0\nkernelName:\ndb 'KERNEL32.DLL',0\nexitProcess:\ndw 0\ndb 'ExitProcess',0\nreadFile:\ndw 0\ndb 'ReadFile',0\nwriteFile:\ndw 0\ndb 'WriteFile',0\ngetStdHandle:\ndw 0\ndb 'GetStdHandle',0\nsection '.data' data readable writeable\nstdInHandle dd ?\nstdOutHandle dd ?\nioChr db ?\nbytesCount dd ?\nsection '.text' code readable executable\nexit:\ncall [ExitProcess]\ngetchar:\npush ebp\nmov ebp, esp\nmov [ioChr], 0\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdInHandle]\ncall [ReadFile]\nmov eax, 0\nmov al, [ioChr]\npop ebp\nret 0 \nputchar:\npush ebp\nmov ebp, esp\nmov eax, [ebp + 8]\nmov [ioChr], al\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdOutHandle]\ncall [WriteFile]\npop ebp\nret 4 \nteq:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njne @f\ninc ecx\n@@: push ecx\njmp edx\ntne:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\nje @f\ninc ecx\n@@: push ecx\njmp edx\ntls:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njge @f\ninc ecx\n@@: push ecx\njmp edx\ntle:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njg @f\ninc ecx\n@@: push ecx\njmp edx\ntgr:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njle @f\ninc ecx\n@@: push ecx\njmp edx\ntge:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njl @f\ninc ecx\n@@: push ecx\njmp edx\nstart:\npush 0FFFFFFF6h\ncall [GetStdHandle]\nmov [stdInHandle], eax \npush 0FFFFFFF5h\ncall [GetStdHandle]\nmov [stdOutHandle], eax \ncall main\npush 0\ncall [ExitProcess]\n";
+static char jmpBegin[] = "jmp b#0\n";
+static char jmpEnd[] = "pop eax\ncmp eax,0\nje e#0\n";
+static char opTeq[] = "call teq\n";
+static char opTne[] = "call tne\n";
+static char opTls[] = "call tls\n";
+static char opTle[] = "call tle\n";
+static char opTgr[] = "call tgr\n";
+static char opTge[] = "call tge\n";
+static char opRead[] = "pop eax\npush dword[eax]\n";
+static char opWrite[] = "pop ebx\npop eax\nmov [eax],ebx\n";
+static char txtSeg[] = "section '.text' code readable executable";
+static char* string;
+static char* strings[10]; // texts for textual placeholders 0 to 9
+static char* text; // Test to be put out.
+static int buffer[12];
+static int bufferIndex;
 static int chr;
 static int curChr;
 static int curSym;
@@ -88,85 +107,122 @@ static int funIdx;
 static int hasInit;
 static int i;
 static int j;
-static int labStack[labStackLen];
-static int labTos;
+static int values[valuesSize];
+static int valuesPointer;
 static int limit;
-static int namIdx;
-static int namTab[namTabLen];
-static int namTos;
-static int num;
+static int minusOne;
+static int nameIndex;
+static int names[namesSize];
+static int namesPointer;
+static int number;
+static int numbers[10]; // numbers for numerical placeholders 0 to 9
 static int nxtChr;
 static int nxtLab;
-static int minusOne;
 static int op;
 static int reg;
-static int result;
-static char datSeg[] = "section '.data' data readable writeable";
-static char txtSeg[] = "section '.text' code readable executable";
-static char hdr[] = "format PE Console\nentry start\nsection '.idata' import data readable writeable\ndd 0\ndd 0\ndd 0\ndd rva kernelName\ndd rva kernelTable\ndd 0\ndd 0\ndd 0\ndd 0\ndd 0\nkernelTable:\nExitProcess dd rva exitProcess\nGetConsoleMode dd rva getConsoleMode\nSetConsoleMode dd rva setConsoleMode\nReadFile dd rva readFile\nWriteFile dd rva writeFile\nGetStdHandle dd rva getStdHandle\ndd 0\nkernelName:\ndb 'KERNEL32.DLL',0\nexitProcess:\ndw 0\ndb 'ExitProcess',0\ngetConsoleMode:\ndw 0\ndb 'GetConsoleMode',0\nsetConsoleMode:\ndw 0\ndb 'SetConsoleMode',0\nreadFile:\ndw 0\ndb 'ReadFile',0\nwriteFile:\ndw 0\ndb 'WriteFile',0\ngetStdHandle:\ndw 0\ndb 'GetStdHandle',0\nsection '.data' data readable writeable\nstdInHandle dd ?\nstdOutHandle dd ?\nconsoleMode dd ?\nioChr db ?\nbytesCount dd ?\nsection '.text' code readable executable\nexit:\ncall [ExitProcess]\ngetchar:\npush ebp\nmov ebp, esp\nmov [ioChr], 0\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdInHandle]\ncall [ReadFile]\nmov eax, 0\nmov al, [ioChr]\npop ebp\nret 0 \nputchar:\npush ebp\nmov ebp, esp\nmov eax, [ebp + 8]\nmov [ioChr], al\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdOutHandle]\ncall [WriteFile]\npop ebp\nret 4 \nstart:\npush 0FFFFFFF6h\ncall [GetStdHandle]\nmov [stdInHandle], eax \npush 0FFFFFFF5h\ncall [GetStdHandle]\nmov [stdOutHandle], eax \npush consoleMode\npush [stdInHandle]\ncall [GetConsoleMode]\nmov eax, [consoleMode]\nand eax, 0FFFFFFFDh\npush eax\npush [stdInHandle]\ncall [SetConsoleMode]\ncall main\npush 0\ncall [ExitProcess]\n";
+static int stringIndex;
+static int textIndex;
 
-static int Fail()
+// exit program with failure-code 1
+static void Fail()
 {
   putchar('f'); putchar('a'); putchar('i'); putchar('l'); putchar(10); 
   exit(1);
 }
 
-static char* txt;
-static char curTxtChr;
-static int curTxtIdx;
-
-void EmtTxt()
+static void PutNumber()
 {
-  curTxtIdx = 0;
+  bufferIndex = 0;
+  buffer[0] = number % 10;
+  number = number / 10;
+  while (0 < number)
+  {
+    bufferIndex = bufferIndex + 1;
+    buffer[bufferIndex] = number % 10;
+    number = number / 10;
+  }
+  while (0 <= bufferIndex)
+  {
+    putchar(buffer[bufferIndex] + 48);
+    bufferIndex = bufferIndex - 1;
+  }
+}
+
+static void PutString()
+{
+  stringIndex = 0;
+  while (string[stringIndex])
+  {
+    putchar(string[stringIndex]);
+    stringIndex = stringIndex + 1;
+  }
+}
+
+static int ExpandPlaceholders()
+{
+  if (curTxtChr == chrBackslash)
+  {
+    textIndex = textIndex + 1;
+    curTxtChr = text[textIndex];
+    if (curTxtChr == 'n')
+    {
+      curTxtChr = 10;
+    }
+    putchar(curTxtChr);
+    textIndex = textIndex + 1;
+    return 1;
+  }
+  if (curTxtChr == chrHash)
+  {
+    number = numbers[text[textIndex + 1] - 48];
+    PutNumber();
+    textIndex = textIndex + 2;
+    return 1;
+  }
+  if (curTxtChr == chrDollar)
+  {
+    string = strings[text[textIndex + 1] - 48];
+    PutString();
+    textIndex = textIndex + 2;
+    return 1;
+  }
+  return 0;
+}
+
+// Output text to stdout. The text may contain placeholders.       
+void PutTxt()
+{
+  textIndex = 0;
   while (1)
   {
-    curTxtChr = txt[curTxtIdx];
+    curTxtChr = text[textIndex];
     if (!curTxtChr)
     {
       return;
     }
-    if (curTxtChr == chrBackslash)
+    if (!ExpandPlaceholders())
     {
-      curTxtIdx = curTxtIdx + 1;
-      curTxtChr = txt[curTxtIdx];
-      if (curTxtChr == 'n')
-      {
-        curTxtChr = 10;
-      }
+      putchar(curTxtChr);
+      textIndex = textIndex + 1;
     }
-    putchar(curTxtChr);
-    curTxtIdx = curTxtIdx + 1;
   }
 }
 
-void NumToBuf()
+static void PushValue()
 {
-  bufIdx = 0;
-  buf[0] = num % 10;
-  num = num / 10;
-  while (0 < num)
-  {
-    bufIdx = bufIdx + 1;
-    buf[bufIdx] = num % 10;
-    num = num / 10;
-  }
-}
-
-static void PushLab()
-{
-  labTos = labTos + 1;
-  labStack[labTos] = nxtLab;
+  valuesPointer = valuesPointer + 1;
+  values[valuesPointer] = nxtLab;
   nxtLab = nxtLab + 1;
 }
 
-static void PopLab()
+static void PopValue()
 {
-  labTos = labTos - 1;
+  valuesPointer = valuesPointer - 1;
 }
 
-static int LabTop()
+static int TopValue()
 {
-  return labStack[labTos];
+  return values[valuesPointer];
 }
 
 static void EmtCall()
@@ -189,16 +245,6 @@ static void EmtJe()
   putchar('j'); putchar('e'); 
 }
 
-static void EmtJmp()
-{
-  putchar('j'); putchar('m'); putchar('p');
-}
-
-static void EmtLea()
-{
-  putchar('l'); putchar('e'); putchar('a'); 
-}
-
 static void EmtMov()
 {
   putchar('m'); putchar('o'); putchar('v');
@@ -217,23 +263,18 @@ static void EmtPush()
 static void EmtNam()
 {
   i = 0;
-  limit = namTab[namIdx + 1];
+  limit = names[nameIndex + 1];
   while (i < limit)
   {
-    putchar(namTab[namIdx + i + 2]);
+    putchar(names[nameIndex + i + 2]);
     i = i + 1;
   }
 }
 
 static void EmtVal()
 {
-  num = curVal;
-  NumToBuf();
-  while (0 <= bufIdx)
-  {
-    putchar(buf[bufIdx] + 48);
-    bufIdx = bufIdx - 1;
-  }
+  number = curVal;
+  PutNumber();
 }
 
 static void EmtDcl()
@@ -253,17 +294,17 @@ static void EmtFun()
 
 static void EmtDatSeg()
 {
-  txt = datSeg; EmtTxt(); putchar(10);
+  text = datSeg; PutTxt(); putchar(10);
 }
 
 static void EmtTxtSeg()
 {
-  txt = txtSeg; EmtTxt(); putchar(10);
+  text = txtSeg; PutTxt(); putchar(10);
 }
 
 static void EmtHdr()
 {
-  txt = hdr; EmtTxt();
+  text = hdr; PutTxt();
 }
 
 static void EmtOp()
@@ -298,47 +339,9 @@ static void EmtOp()
   }
 }
 
-static void EmtCndJmp()
-{
-  if (op == tokEqual)
-  {
-    putchar('j'); putchar('e');
-    return;
-  }
-  if (op == tokNotEqual)
-  {
-    putchar('j'); putchar('n'); putchar('e');
-    return;
-  }
-  if (op == tokLess)
-  {
-    putchar('j'); putchar('l');
-    return;
-  }
-  if (op == tokLessOrEqual)
-  {
-    putchar('j'); putchar('l'); putchar('e');
-    return;
-  }
-  if (op == tokGreater)
-  {
-    putchar('j'); putchar('g');
-    return;
-  }
-  if (op == tokGreaterOrEqual)
-  {
-    putchar('j'); putchar('g'); putchar('e');
-  }
-}
-
 static void EmtReg()
 {
   putchar('e'); putchar(reg); putchar('x'); 
-}
-
-static void EmtRegInd()
-{
-  putchar('['); EmtReg(); putchar(']');
 }
 
 static void EmtPushNam()
@@ -349,11 +352,6 @@ static void EmtPushNam()
 static void EmtPushReg()
 {
   EmtPush(); putchar(' '); EmtReg(); putchar(10);
-}
-
-static void EmtPushRegInd()
-{
-  EmtPush(); putchar(' '); putchar('d'); putchar('w'); putchar('o'); putchar('r');  putchar('d'); EmtRegInd(); putchar(10);
 }
 
 static void EmtPushVal()
@@ -373,14 +371,12 @@ static void EmtRet()
 
 static void EmtAsgn()
 {
-  reg = 'b'; EmtPopReg();
-  reg = 'a'; EmtPopReg();
-  EmtMov(); putchar(' '); reg = 'a'; EmtRegInd(); putchar(','); reg = 'b'; EmtReg(); putchar(10);
+  text = opWrite; PutTxt();
 }
 
 static void EmtProcCall()
 {
-  EmtCall(); putchar(' '); namIdx = funIdx; EmtNam(); putchar(10);  
+  EmtCall(); putchar(' '); nameIndex = funIdx; EmtNam(); putchar(10);  
 }
 
 static void EmtFunCall()
@@ -414,18 +410,6 @@ static void EmtOperation()
   EmtPushReg();
 }
 
-static void EmtComparison()
-{
-  EmtMov(); putchar(' '); reg = 'c'; EmtReg(); putchar(','); curVal = 1; EmtVal(); putchar(10);
-  reg = 'b'; EmtPopReg();
-  reg = 'a'; EmtPopReg();
-  EmtCmp(); putchar(' '); reg = 'a'; EmtReg(); putchar(','); reg = 'b'; EmtReg(); putchar(10);
-  EmtCndJmp(); putchar(' '); putchar('@'); putchar('f'); putchar(10);
-  EmtDec(); putchar(' '); reg = 'c'; EmtReg(); putchar(10);
-  putchar('@'); putchar('@'); putchar(':'); putchar(10);
-  reg = 'c'; EmtPushReg();
-}
-
 static void EmtNot()
 {
   EmtMov(); putchar(' '); reg = 'c'; EmtReg(); putchar(','); curVal = 1; EmtVal(); putchar(10);
@@ -448,47 +432,43 @@ static void EmtNeg()
 
 static void EmtAddIdx()
 {
-  reg = 'b'; EmtPopReg();
-  reg = 'a'; EmtPopReg();
-  EmtLea(); putchar(' '); reg = 'a'; EmtReg(); putchar(','); putchar('['); reg = 'a'; EmtReg(); putchar('+'); putchar('4'); putchar('*'); reg = 'b'; EmtReg(); putchar(']'); putchar(10);
-  reg = 'a'; EmtPushReg();
+  text = addIdx; PutTxt();
 }
 
 static void EmtBegin()
 {
-  putchar('b'); curVal = LabTop(); EmtVal(); putchar(':'); putchar(10);
+  putchar('b'); curVal = TopValue(); EmtVal(); putchar(':'); putchar(10);
 }
 
 static void EmtJmpBegin()
 {
-  EmtJmp(); putchar(' '); putchar('b'); curVal = LabTop(); EmtVal(); putchar(10);
+  text = jmpBegin; numbers[0] = TopValue(); PutTxt();
 }
 
 static void EmtEnd()
 {
-  putchar('e'); curVal = LabTop(); EmtVal(); putchar(':'); putchar(10);
+  putchar('e'); curVal = TopValue(); EmtVal(); putchar(':'); putchar(10);
 }
 
 static void EmtJmpEnd()
 {
-  reg = 'a'; EmtPopReg();
-  EmtCmp(); putchar(' '); reg = 'a'; EmtReg(); putchar(','); curVal = 0; EmtVal(); putchar(10);
-  EmtJe(); putchar(' '); putchar('e'); curVal = LabTop(); EmtVal(); putchar(10);
+  text = jmpEnd; numbers[0] = TopValue(); PutTxt();
 }
 
-static void EmtPushTosInd()
+static void EmtRead()
 {
-  reg = 'a'; EmtPopReg();
-  EmtPushRegInd();
+  // reg = 'a'; EmtPopReg();
+  // EmtPushRegInd();
+  text = opRead; PutTxt();
 }
 
 static void EmtStrInt()
 {
   i = 0;
-  limit = namTab[namTos + 1];
+  limit = names[namesPointer + 1];
   while (i < limit)
   {
-    curVal = namTab[namTos + i + 2];
+    curVal = names[namesPointer + i + 2];
     EmtVal();
     putchar(',');
     i = i + 1;
@@ -503,8 +483,8 @@ static void EmtArrAddr()
 
 static void AddChr()
 {
-  namTab[namTos + 1] = namTab[namTos + 1] + 1;
-  namTab[namTos + namTab[namTos + 1] + 1] = chr;
+  names[namesPointer + 1] = names[namesPointer + 1] + 1;
+  names[namesPointer + names[namesPointer + 1] + 1] = chr;
 }
 
 static void AddCurChr()
@@ -534,25 +514,25 @@ static int IsLetter()
 
 static void SetSym()
 {
-  i = namTos + namTab[namTos + 1];
-  namTab[i + 2] = curSym;
-  namTab[i + 3] = curVal;
-  namTab[i + 4] = namTos;
-  namTos = i + 4;
+  i = namesPointer + names[namesPointer + 1];
+  names[i + 2] = curSym;
+  names[i + 3] = curVal;
+  names[i + 4] = namesPointer;
+  namesPointer = i + 4;
 }
 
 static int FndSym()
 {
-  i = namTab[namTos];
+  i = names[namesPointer];
   while (1)
   {
-    limit = namTab[i + 1];
-    if (limit == namTab[namTos + 1])
+    limit = names[i + 1];
+    if (limit == names[namesPointer + 1])
     {
       j = 0;
       while (j < limit)
       {
-        if (namTab[i + j + 2] != namTab[namTos + j + 2])
+        if (names[i + j + 2] != names[namesPointer + j + 2])
         {
           j = limit;
         }
@@ -560,8 +540,8 @@ static int FndSym()
       }
       if (j == limit)
       {
-        curSym = namTab[i + namTab[i + 1] + 2];
-        curVal = namTab[i + namTab[i + 1] + 3];
+        curSym = names[i + names[i + 1] + 2];
+        curVal = names[i + names[i + 1] + 3];
         return 1;
       }
     }
@@ -569,26 +549,39 @@ static int FndSym()
     {
       return 0;
     }
-    i = namTab[i];
+    i = names[i];
   }
 }
 
-static int GetChr()
+static void GetNxtChr()
 {
-  result = getchar();
-  if (result <= 0)
+  curChr = nxtChr;
+  nxtChr = getchar();
+  if (nxtChr < 0)
   {
-    result = 0;
+    nxtChr = 0;
   }
-  return result;
+}
+
+static void GetChr()
+{
+  GetNxtChr();
+  while ((curChr == '/') && (nxtChr == '/'))
+  {
+    while ((curChr != eof) && (curChr != 10))
+    {
+      GetNxtChr();
+    }
+    GetNxtChr();
+  }
 }
 
 static void RdTok()
 {
-  namTab[namTos + 1] = 0;
+  names[namesPointer + 1] = 0;
   while ((curChr != eof) && IsWhitespace())
   {
-    curChr = GetChr();
+    GetChr();
   }
   curTok = tokEof;
   if (curChr == eof)
@@ -597,82 +590,82 @@ static void RdTok()
   }
   if (curChr == chrLBrace)
   {
-    curChr = GetChr();
+    GetChr();
     curTok = tokLBrace;
     return;
   }
   if (curChr == chrLBracket)
   {
-    curChr = GetChr();
+    GetChr();
     curTok = tokLBracket;
     return;
   }
   if (curChr == chrLParen)
   {
-    curChr = GetChr();
+    GetChr();
     curTok = tokLParen;
     return;
   }
   if (curChr == chrRBrace)
   {
-    curChr = GetChr();
+    GetChr();
     curTok = tokRBrace;
     return;
   }
   if (curChr == chrRBracket)
   {
-    curChr = GetChr();
+    GetChr();
     curTok = tokRBracket;
     return;
   }
   if (curChr == chrRParen)
   {
-    curChr = GetChr();
+    GetChr();
     curTok = tokRParen;
     return;
   }
   if (curChr == chrSemicolon)
   {
-    curChr = GetChr();
+    GetChr();
     curTok = tokSemicolon;
     return;
   }
   if (curChr == chrPlus)
   {
-    curChr = GetChr();
+    GetChr();
     curTok = tokAdd;
     return;
   }
   if (curChr == chrMinus)
   {
-    curChr = GetChr();
+    GetChr();
     curTok = tokSub;
     return;
   }
   if (curChr == chrAsterisk)
   {
-    curChr = GetChr();
+    GetChr();
     curTok = tokMul;
     return;
   }
   if (curChr == chrSlash)
   {
-    curChr = GetChr();
+    GetChr();
     curTok = tokDiv;
     return;
   }
   if (curChr == chrPercent)
   {
-    curChr = GetChr();
+    GetChr();
     curTok = tokMod;
     return;
   }
   if (curChr == chrEquals)
   {
-    curChr = GetChr();
+    GetChr();
     if (curChr == chrEquals)
     {
-      curChr = GetChr();
+      GetChr();
       curTok = tokEqual;
       return;
     }
@@ -681,10 +674,10 @@ static void RdTok()
   }
   if (curChr == chrExclamationMark)
   {
-    curChr = GetChr();
+    GetChr();
     if (curChr == chrEquals)
     {
-      curChr = GetChr();
+      GetChr();
       curTok = tokNotEqual;
       return;
     }
@@ -693,10 +686,10 @@ static void RdTok()
   }
   if (curChr == chrLess)
   {
-    curChr = GetChr();
+    GetChr();
     if (curChr == chrEquals)
     {
-      curChr = GetChr();
+      GetChr();
       curTok = tokLessOrEqual;
       return;
     }
@@ -705,10 +698,10 @@ static void RdTok()
   }
   if (curChr == chrGreater)
   {
-    curChr = GetChr();
+    GetChr();
     if (curChr == chrEquals)
     {
-      curChr = GetChr();
+      GetChr();
       curTok = tokGreaterOrEqual;
       return;
     }
@@ -717,10 +710,10 @@ static void RdTok()
   }
   if (curChr == chrAmpersand)
   {
-    curChr = GetChr();
+    GetChr();
     if (curChr == chrAmpersand)
     {
-      curChr = GetChr();
+      GetChr();
       curTok = tokAnd;
       return;
     }
@@ -728,10 +721,10 @@ static void RdTok()
   }
   if (curChr == chrPipe)
   {
-    curChr = GetChr();
+    GetChr();
     if (curChr == chrPipe)
     {
-      curChr = GetChr();
+      GetChr();
       curTok = tokOr;
       return;
     }
@@ -739,20 +732,20 @@ static void RdTok()
   }
   if (curChr == chrHash)
   {
-    curChr = GetChr();
+    GetChr();
     curTok = tokHash;
     return;
   }
   if (curChr == chrApostrophe)
   {
-    curChr = GetChr();
+    GetChr();
     if (!IsCtrl())
     {
       curVal = curChr;
-      curChr = GetChr();
+      GetChr();
       if (curChr == chrApostrophe)
       {
-        curChr = GetChr();
+        GetChr();
         curTok = tokNumber;
         return;
       }
@@ -760,23 +753,23 @@ static void RdTok()
   }
   if (curChr == chrQuote)
   {
-    curChr = GetChr();
+    GetChr();
     while ((curChr != eof) && (curChr != chrQuote))
     {
       if (curChr == chrBackslash)
       {
-        curChr = GetChr();
+        GetChr();
         if (curChr == 'n')
         {
           curChr = 10;
         }
       }
       AddCurChr();
-      curChr = GetChr();
+      GetChr();
     }
     if (curChr == chrQuote)
     {
-      curChr = GetChr();
+      GetChr();
       curTok = tokString;
       return;
     }
@@ -786,7 +779,7 @@ static void RdTok()
     while ((curChr != eof) && IsLetter())
     {
       AddCurChr();
-      curChr = GetChr();
+      GetChr();
     }
     if (FndSym())
     {
@@ -822,7 +815,7 @@ static void RdTok()
     {
       curVal = (curVal * 10) + (curChr - chrZero);
       AddCurChr();
-      curChr = GetChr();
+      GetChr();
     }
     curTok = tokNumber;
     return;
@@ -837,8 +830,8 @@ static void Init()
   EmtHdr();
 
   nxtLab = 0;
-  labTos = minusOne;
-  namTos = minusOne;
+  valuesPointer = minusOne;
+  namesPointer = minusOne;
 
   curChr = 'c'; AddCurChr();
   curChr = 'o'; AddCurChr();
@@ -959,7 +952,9 @@ static void Init()
 
   curSym = symUnknown;
   curVal = 0;
-  curChr = GetChr();
+  nxtChr = 0;
+  GetNxtChr();
+  GetChr();
   RdTok();
 }
 
@@ -1004,12 +999,12 @@ static void ParseExpression()
   }
   if (curTok == tokVar)
   {
-    namIdx = namTos;
+    nameIndex = namesPointer;
     EmtPushNam();
     RdTok();
     if (curTok == tokLBracket)
     {
-      EmtPushTosInd();
+      EmtRead();
       RdTok();
       ParseExpression();
       if (curTok != tokRBracket)
@@ -1019,7 +1014,7 @@ static void ParseExpression()
       EmtAddIdx();
       RdTok();
     }
-    EmtPushTosInd();
+    EmtRead();
   }
   if (curTok == tokFun)
   {
@@ -1100,43 +1095,43 @@ static void ParseExpression()
   {
     RdTok();
     ParseExpression();
-    op = tokEqual;
-    EmtComparison();
+    // text = opCmp; strings[0] = opJne; PutTxt();
+    text = opTeq; PutTxt();
   }
   if (curTok == tokNotEqual)
   {
     RdTok();
     ParseExpression();
-    op = tokNotEqual;
-    EmtComparison();
+    // text = opCmp; strings[0] = opJeq; PutTxt();
+    text = opTne; PutTxt();
   }
   if (curTok == tokLess)
   {
     RdTok();
     ParseExpression();
-    op = tokLess;
-    EmtComparison();
+    // text = opCmp; strings[0] = opJge; PutTxt();
+    text = opTls; PutTxt();
   }
   if (curTok == tokLessOrEqual)
   {
     RdTok();
     ParseExpression();
-    op = tokLessOrEqual;
-    EmtComparison();
+    // text = opCmp; strings[0] = opJgr; PutTxt();
+    text = opTle; PutTxt();
   }
   if (curTok == tokGreater)
   {
     RdTok();
     ParseExpression();
-    op = tokGreater;
-    EmtComparison();
+    // text = opCmp; strings[0] = opJle; PutTxt();
+    text = opTgr; PutTxt();
   }
   if (curTok == tokGreaterOrEqual)
   {
     RdTok();
     ParseExpression();
-    op = tokGreaterOrEqual;
-    EmtComparison();
+    // text = opCmp; strings[0] = opJls; PutTxt();
+    text = opTge; PutTxt();
   }
 }
 
@@ -1151,12 +1146,12 @@ static void ParseBlock()
   {
     if (curTok == tokVar)
     {
-      namIdx = namTos;
+      nameIndex = namesPointer;
       EmtPushNam();
       RdTok();
       if (curTok == tokLBracket)
       {
-        EmtPushTosInd();
+        EmtRead();
         RdTok();
         ParseExpression();
         if (curTok != tokRBracket)
@@ -1226,7 +1221,7 @@ static void ParseBlock()
       {
         Fail();
       }
-      PushLab();
+      PushValue();
       RdTok();
       ParseExpression();
       if (curTok != tokRParen)
@@ -1237,7 +1232,7 @@ static void ParseBlock()
       RdTok();
       ParseBlock();
       EmtEnd();
-      PopLab();
+      PopValue();
     }
     if (curTok == tokWhile)
     {
@@ -1246,7 +1241,7 @@ static void ParseBlock()
       {
         Fail();
       }
-      PushLab();
+      PushValue();
       EmtBegin();
       RdTok();
       ParseExpression();
@@ -1259,7 +1254,7 @@ static void ParseBlock()
       ParseBlock();
       EmtJmpBegin();
       EmtEnd();
-      PopLab();
+      PopValue();
     }
   }
   if (curTok != tokRBrace)
@@ -1317,7 +1312,7 @@ static void ParseDefinition()
     }
     RdTok();
     ParseNumber();
-    namTab[i + 3] = curVal;
+    names[i + 3] = curVal;
     if (curTok != tokSemicolon)
     {
       Fail();
@@ -1340,12 +1335,12 @@ static void ParseDefinition()
     {
       Fail();
     }
-    namIdx = namTos;
+    nameIndex = namesPointer;
     SetSym();
     RdTok();
     if (curTok == tokLParen)
     {
-      namTab[i + 2] = symFun;
+      names[i + 2] = symFun;
       EmtTxtSeg();
       EmtFun();
       RdTok();
@@ -1358,7 +1353,7 @@ static void ParseDefinition()
       EmtRet();
       return;
     }
-    namTab[i + 2] = symVar;
+    names[i + 2] = symVar;
     EmtDatSeg();
     EmtDcl();
     curVal = 1;
@@ -1415,7 +1410,7 @@ static void ParseCpl()
 
 int main()
 {
+  i = 47 == 11;
   Init();
   ParseCpl();
 }
-
