@@ -4,6 +4,7 @@
 const int chrAmpersand = 38;
 const int chrApostrophe = 39;
 const int chrAsterisk = 42;
+const int chrAt = 64;
 const int chrBackslash = 92;
 const int chrDel = 127;
 const int chrDollar = 36;
@@ -93,10 +94,11 @@ static char opTls[] = "call tls\n";
 static char opTne[] = "call tne\n";
 static char opWrite[] = "pop ebx\npop eax\nmov [eax],ebx\n";
 static char opCall[] = "call %0\n";
-static char opPushAddress[] = "push %0\n";
-// static char opVarDcl[] = "%0 dd ?";
-// static char opArrDcl[] = "%0 dd #0 dup(?)";
-// static char opStrDcl[] = "%0 dd @0";
+static char opPushName[] = "push %0\n";
+static char opDeclaration[] = "%0 dd";
+static char opDup[] = " #0 dup(?)\n";
+static char opNumbers[] = "&0";
+static char opArrAddr[] = " \\$+4,";
 static char opFun[] = "%0:\n";
 static char txtSeg[] = "section '.text' code readable executable";
 static char* string;
@@ -172,6 +174,19 @@ static void PutName()
   }
 }
 
+static void PutNumbers()
+{
+  i = 0;
+  limit = info[nameIndex + 1];
+  while (i < limit)
+  {
+    number = info[nameIndex + i + 2]; PutNumber();
+    putchar(',');
+    i = i + 1;
+  }
+  putchar('0');
+}
+
 static int ExpandPlaceholders()
 {
   if (curTxtChr == chrBackslash)
@@ -204,6 +219,13 @@ static int ExpandPlaceholders()
   {
     nameIndex = nameIndices[text[textIndex + 1] - 48];
     PutName();
+    textIndex = textIndex + 2;
+    return 1;
+  }
+  if (curTxtChr == chrAmpersand) // numbers ...
+  {
+    nameIndex = nameIndices[text[textIndex + 1] - 48];
+    PutNumbers();
     textIndex = textIndex + 2;
     return 1;
   }
@@ -283,7 +305,7 @@ static void EmtPush()
   putchar('p'); putchar('u'); putchar('s'); putchar('h');
 }
 
-static void EmtNam()
+static void aEmtNam()
 {
   nameIndex = findPointer; PutName();
 }
@@ -296,12 +318,14 @@ static void EmtVal()
 
 static void EmtDcl()
 {
-  EmtNam(); putchar(' '); putchar('d'); putchar('d'); putchar(' ');
+  // EmtNam(); putchar(' '); putchar('d'); putchar('d'); putchar(' ');
+  text = opDeclaration; nameIndices[0] = findPointer; PutTxt();
 }
 
 static void EmtDup()
 {
-  EmtVal(); putchar(' '); putchar('d'); putchar('u'); putchar('p'); putchar('('); putchar('?'); putchar(')');
+  // EmtVal(); putchar(' '); putchar('d'); putchar('u'); putchar('p'); putchar('('); putchar('?'); putchar(')');
+  text = opDup; numbers[0] = curVal; PutTxt();
 }
 
 static void EmtFun()
@@ -361,10 +385,9 @@ static void EmtReg()
   putchar('e'); putchar(reg); putchar('x'); 
 }
 
-static void EmtPushNam()
+static void EmtPushName()
 {
-  // EmtPush(); putchar(' '); EmtNam(); putchar(10);
-  text = opPushAddress; nameIndices[0] = findPointer; PutTxt();
+  text = opPushName; nameIndices[0] = findPointer; PutTxt();
 }
 
 static void EmtPushReg()
@@ -450,7 +473,6 @@ static void EmtNeg()
 
 static void EmtAddIdx()
 {
-  // text = addIdx; PutTxt();
   text = opAdi; PutTxt();
 }
 
@@ -479,7 +501,7 @@ static void EmtRead()
   text = opRead; PutTxt();
 }
 
-static void EmtStrInt()
+static void aEmtStrInt()
 {
   i = 0;
   limit = info[namesPointer + 1];
@@ -493,9 +515,15 @@ static void EmtStrInt()
   putchar('0');
 }
 
+static void EmtStrInt()
+{
+  text = opNumbers; nameIndices[0] = namesPointer; PutTxt(); 
+}
+
 static void EmtArrAddr()
 {
-  putchar('$'); putchar('+'); putchar('4'); putchar(',');
+  // putchar('$'); putchar('+'); putchar('4'); putchar(',');
+  text = opArrAddr; PutTxt();
 }
 
 static void AddChr()
@@ -1017,7 +1045,7 @@ static void ParseExpression()
   if (curTok == tokVar)
   {
     findPointer = namesPointer;
-    EmtPushNam();
+    EmtPushName();
     RdTok();
     if (curTok == tokLBracket)
     {
@@ -1164,7 +1192,7 @@ static void ParseBlock()
     if (curTok == tokVar)
     {
       findPointer = namesPointer;
-      EmtPushNam();
+      EmtPushName();
       RdTok();
       if (curTok == tokLBracket)
       {
