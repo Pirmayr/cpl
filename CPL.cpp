@@ -78,13 +78,13 @@ const int tokVar = 32;
 const int tokVoid = 29;
 const int tokWhile = 24;
 
-static char addIdx[] = "pop ebx\npop eax\nlea eax,[eax+4*ebx]\npush eax\n";
 static char curTxtChr;
 static char datSeg[] = "section '.data' data readable writeable";
-static char hdr[] = "format PE Console\nentry start\nsection '.idata' import data readable writeable\ndd 0\ndd 0\ndd 0\ndd rva kernelName\ndd rva kernelTable\ndd 0\ndd 0\ndd 0\ndd 0\ndd 0\nkernelTable:\nExitProcess dd rva exitProcess\nReadFile dd rva readFile\nWriteFile dd rva writeFile\nGetStdHandle dd rva getStdHandle\ndd 0\nkernelName:\ndb 'KERNEL32.DLL',0\nexitProcess:\ndw 0\ndb 'ExitProcess',0\nreadFile:\ndw 0\ndb 'ReadFile',0\nwriteFile:\ndw 0\ndb 'WriteFile',0\ngetStdHandle:\ndw 0\ndb 'GetStdHandle',0\nsection '.data' data readable writeable\nstdInHandle dd ?\nstdOutHandle dd ?\nioChr db ?\nbytesCount dd ?\nsection '.text' code readable executable\nexit:\ncall [ExitProcess]\ngetchar:\npush ebp\nmov ebp, esp\nmov [ioChr], 0\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdInHandle]\ncall [ReadFile]\nmov eax, 0\nmov al, [ioChr]\npop ebp\nret 0 \nputchar:\npush ebp\nmov ebp, esp\nmov eax, [ebp + 8]\nmov [ioChr], al\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdOutHandle]\ncall [WriteFile]\npop ebp\nret 4 \nteq:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njne @f\ninc ecx\n@@: push ecx\njmp edx\ntne:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\nje @f\ninc ecx\n@@: push ecx\njmp edx\ntls:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njge @f\ninc ecx\n@@: push ecx\njmp edx\ntle:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njg @f\ninc ecx\n@@: push ecx\njmp edx\ntgr:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njle @f\ninc ecx\n@@: push ecx\njmp edx\ntge:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njl @f\ninc ecx\n@@: push ecx\njmp edx\nstart:\npush 0FFFFFFF6h\ncall [GetStdHandle]\nmov [stdInHandle], eax \npush 0FFFFFFF5h\ncall [GetStdHandle]\nmov [stdOutHandle], eax \ncall main\npush 0\ncall [ExitProcess]\n";
+static char hdr[] = "format PE Console\nentry start\nsection '.idata' import data readable writeable\ndd 0\ndd 0\ndd 0\ndd rva kernelName\ndd rva kernelTable\ndd 0\ndd 0\ndd 0\ndd 0\ndd 0\nkernelTable:\nExitProcess dd rva exitProcess\nReadFile dd rva readFile\nWriteFile dd rva writeFile\nGetStdHandle dd rva getStdHandle\ndd 0\nkernelName:\ndb 'KERNEL32.DLL',0\nexitProcess:\ndw 0\ndb 'ExitProcess',0\nreadFile:\ndw 0\ndb 'ReadFile',0\nwriteFile:\ndw 0\ndb 'WriteFile',0\ngetStdHandle:\ndw 0\ndb 'GetStdHandle',0\nsection '.data' data readable writeable\nstdInHandle dd ?\nstdOutHandle dd ?\nioChr db ?\nbytesCount dd ?\nsection '.text' code readable executable\nexit:\ncall [ExitProcess]\ngetchar:\npush ebp\nmov ebp, esp\nmov [ioChr], 0\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdInHandle]\ncall [ReadFile]\nmov eax, 0\nmov al, [ioChr]\npop ebp\nret 0 \nputchar:\npush ebp\nmov ebp, esp\nmov eax, [ebp + 8]\nmov [ioChr], al\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdOutHandle]\ncall [WriteFile]\npop ebp\nret 4 \nteq:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njne @f\ninc ecx\n@@: push ecx\njmp edx\ntne:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\nje @f\ninc ecx\n@@: push ecx\njmp edx\ntls:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njge @f\ninc ecx\n@@: push ecx\njmp edx\ntle:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njg @f\ninc ecx\n@@: push ecx\njmp edx\ntgr:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njle @f\ninc ecx\n@@: push ecx\njmp edx\ntge:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njl @f\ninc ecx\n@@: push ecx\njmp edx\nadi:\npop edx\npop ebx\npop eax\nlea eax,[eax+4*ebx]\npush eax\njmp edx\nstart:\npush 0FFFFFFF6h\ncall [GetStdHandle]\nmov [stdInHandle], eax \npush 0FFFFFFF5h\ncall [GetStdHandle]\nmov [stdOutHandle], eax \ncall main\npush 0\ncall [ExitProcess]\n";
 static char jmpBegin[] = "jmp b#0\n";
 static char jmpEnd[] = "pop eax\ncmp eax,0\nje e#0\n";
 static char opRead[] = "pop eax\npush dword[eax]\n";
+static char opAdi[] = "call adi\n";
 static char opTeq[] = "call teq\n";
 static char opTge[] = "call tge\n";
 static char opTgr[] = "call tgr\n";
@@ -92,6 +92,8 @@ static char opTle[] = "call tle\n";
 static char opTls[] = "call tls\n";
 static char opTne[] = "call tne\n";
 static char opWrite[] = "pop ebx\npop eax\nmov [eax],ebx\n";
+static char opCall[] = "call %0\n";
+static char opPushAddress[] = "push %0\n";
 // static char opVarDcl[] = "%0 dd ?";
 // static char opArrDcl[] = "%0 dd #0 dup(?)";
 // static char opStrDcl[] = "%0 dd @0";
@@ -129,13 +131,7 @@ static int symbolPointer; // index of the newly defined symbol in "info".
 static int textIndex;
 static int values[valuesSize];
 static int valuesPointer; // index of the top-most value in "values"
-
-// exit program with failure-code 1
-static void Fail()
-{
-  putchar('f'); putchar('a'); putchar('i'); putchar('l'); putchar(10); 
-  exit(1);
-}
+static char txtFail[] = "fail\n";
 
 static void PutNumber()
 {
@@ -233,6 +229,13 @@ void PutTxt()
   }
 }
 
+// exit program with failure-code 1
+static void Fail()
+{
+  text = txtFail; PutTxt();
+  exit(1);
+}
+
 static void PushValue()
 {
   valuesPointer = valuesPointer + 1;
@@ -248,11 +251,6 @@ static void PopValue()
 static int TopValue()
 {
   return values[valuesPointer];
-}
-
-static void EmtCall()
-{
-  putchar('c'); putchar('a'); putchar('l'); putchar('l');
 }
 
 static void EmtCmp()
@@ -365,7 +363,8 @@ static void EmtReg()
 
 static void EmtPushNam()
 {
-  EmtPush(); putchar(' '); EmtNam(); putchar(10);
+  // EmtPush(); putchar(' '); EmtNam(); putchar(10);
+  text = opPushAddress; nameIndices[0] = findPointer; PutTxt();
 }
 
 static void EmtPushReg()
@@ -395,7 +394,7 @@ static void EmtAsgn()
 
 static void EmtProcCall()
 {
-  EmtCall(); putchar(' '); findPointer = funIdx; EmtNam(); putchar(10);  
+  text = opCall; nameIndices[0] = funIdx; PutTxt();
 }
 
 static void EmtFunCall()
@@ -451,7 +450,8 @@ static void EmtNeg()
 
 static void EmtAddIdx()
 {
-  text = addIdx; PutTxt();
+  // text = addIdx; PutTxt();
+  text = opAdi; PutTxt();
 }
 
 static void EmtBegin()
@@ -1427,7 +1427,6 @@ static void ParseCpl()
 
 int main()
 {
-  i = 47 == 11;
   Init();
   ParseCpl();
 }
