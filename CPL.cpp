@@ -34,7 +34,7 @@ const int chrUpperZ = 90;
 const int chrZero = 48;
 const int eof = 0;
 const int valuesSize = 1000;
-const int namesSize = 5000;
+const int infoSize = 5000;
 const int symConst = 3;
 const int symFun = 1;
 const int symKeyword = 4;
@@ -84,18 +84,25 @@ static char datSeg[] = "section '.data' data readable writeable";
 static char hdr[] = "format PE Console\nentry start\nsection '.idata' import data readable writeable\ndd 0\ndd 0\ndd 0\ndd rva kernelName\ndd rva kernelTable\ndd 0\ndd 0\ndd 0\ndd 0\ndd 0\nkernelTable:\nExitProcess dd rva exitProcess\nReadFile dd rva readFile\nWriteFile dd rva writeFile\nGetStdHandle dd rva getStdHandle\ndd 0\nkernelName:\ndb 'KERNEL32.DLL',0\nexitProcess:\ndw 0\ndb 'ExitProcess',0\nreadFile:\ndw 0\ndb 'ReadFile',0\nwriteFile:\ndw 0\ndb 'WriteFile',0\ngetStdHandle:\ndw 0\ndb 'GetStdHandle',0\nsection '.data' data readable writeable\nstdInHandle dd ?\nstdOutHandle dd ?\nioChr db ?\nbytesCount dd ?\nsection '.text' code readable executable\nexit:\ncall [ExitProcess]\ngetchar:\npush ebp\nmov ebp, esp\nmov [ioChr], 0\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdInHandle]\ncall [ReadFile]\nmov eax, 0\nmov al, [ioChr]\npop ebp\nret 0 \nputchar:\npush ebp\nmov ebp, esp\nmov eax, [ebp + 8]\nmov [ioChr], al\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdOutHandle]\ncall [WriteFile]\npop ebp\nret 4 \nteq:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njne @f\ninc ecx\n@@: push ecx\njmp edx\ntne:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\nje @f\ninc ecx\n@@: push ecx\njmp edx\ntls:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njge @f\ninc ecx\n@@: push ecx\njmp edx\ntle:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njg @f\ninc ecx\n@@: push ecx\njmp edx\ntgr:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njle @f\ninc ecx\n@@: push ecx\njmp edx\ntge:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njl @f\ninc ecx\n@@: push ecx\njmp edx\nstart:\npush 0FFFFFFF6h\ncall [GetStdHandle]\nmov [stdInHandle], eax \npush 0FFFFFFF5h\ncall [GetStdHandle]\nmov [stdOutHandle], eax \ncall main\npush 0\ncall [ExitProcess]\n";
 static char jmpBegin[] = "jmp b#0\n";
 static char jmpEnd[] = "pop eax\ncmp eax,0\nje e#0\n";
-static char opTeq[] = "call teq\n";
-static char opTne[] = "call tne\n";
-static char opTls[] = "call tls\n";
-static char opTle[] = "call tle\n";
-static char opTgr[] = "call tgr\n";
-static char opTge[] = "call tge\n";
 static char opRead[] = "pop eax\npush dword[eax]\n";
+static char opTeq[] = "call teq\n";
+static char opTge[] = "call tge\n";
+static char opTgr[] = "call tgr\n";
+static char opTle[] = "call tle\n";
+static char opTls[] = "call tls\n";
+static char opTne[] = "call tne\n";
 static char opWrite[] = "pop ebx\npop eax\nmov [eax],ebx\n";
+// static char opVarDcl[] = "%0 dd ?";
+// static char opArrDcl[] = "%0 dd #0 dup(?)";
+// static char opStrDcl[] = "%0 dd @0";
+static char opFun[] = "%0:\n";
 static char txtSeg[] = "section '.text' code readable executable";
 static char* string;
-static char* strings[10]; // texts for textual placeholders 0 to 9
+static char* strings[10]; // texts for string placeholders
 static char* text; // Test to be put out.
+static int nameIndices[10]; // indices for name placeholders
+static int nameIndex;
+static int findPointer; // index of the find in "info" by calling "FdSym"
 static int buffer[12];
 static int bufferIndex;
 static int chr;
@@ -107,21 +114,21 @@ static int funIdx;
 static int hasInit;
 static int i;
 static int j;
-static int values[valuesSize];
-static int valuesPointer;
 static int limit;
 static int minusOne;
-static int nameIndex;
-static int names[namesSize];
-static int namesPointer;
+static int info[infoSize]; // various information (e.g. names) necessary during compilation
+static int namesPointer; // index of the top-most name in "info"
 static int number;
-static int numbers[10]; // numbers for numerical placeholders 0 to 9
+static int numbers[10]; // numbers for number placeholders
 static int nxtChr;
 static int nxtLab;
 static int op;
 static int reg;
 static int stringIndex;
+static int symbolPointer; // index of the newly defined symbol in "info".
 static int textIndex;
+static int values[valuesSize];
+static int valuesPointer; // index of the top-most value in "values"
 
 // exit program with failure-code 1
 static void Fail()
@@ -158,6 +165,17 @@ static void PutString()
   }
 }
 
+static void PutName()
+{
+  i = 0;
+  limit = info[nameIndex + 1];
+  while (i < limit)
+  {
+    putchar(info[nameIndex + i + 2]);
+    i = i + 1;
+  }
+}
+
 static int ExpandPlaceholders()
 {
   if (curTxtChr == chrBackslash)
@@ -172,17 +190,24 @@ static int ExpandPlaceholders()
     textIndex = textIndex + 1;
     return 1;
   }
-  if (curTxtChr == chrHash)
+  if (curTxtChr == chrHash) // number ...
   {
     number = numbers[text[textIndex + 1] - 48];
     PutNumber();
     textIndex = textIndex + 2;
     return 1;
   }
-  if (curTxtChr == chrDollar)
+  if (curTxtChr == chrDollar) // zero-terminated string ...
   {
     string = strings[text[textIndex + 1] - 48];
     PutString();
+    textIndex = textIndex + 2;
+    return 1;
+  }
+  if (curTxtChr == chrPercent) // name ...
+  {
+    nameIndex = nameIndices[text[textIndex + 1] - 48];
+    PutName();
     textIndex = textIndex + 2;
     return 1;
   }
@@ -262,13 +287,7 @@ static void EmtPush()
 
 static void EmtNam()
 {
-  i = 0;
-  limit = names[nameIndex + 1];
-  while (i < limit)
-  {
-    putchar(names[nameIndex + i + 2]);
-    i = i + 1;
-  }
+  nameIndex = findPointer; PutName();
 }
 
 static void EmtVal()
@@ -289,7 +308,7 @@ static void EmtDup()
 
 static void EmtFun()
 {
-  EmtNam(); putchar(':'); putchar(10);
+  text = opFun; nameIndices[0] = findPointer; PutTxt();
 }
 
 static void EmtDatSeg()
@@ -376,7 +395,7 @@ static void EmtAsgn()
 
 static void EmtProcCall()
 {
-  EmtCall(); putchar(' '); nameIndex = funIdx; EmtNam(); putchar(10);  
+  EmtCall(); putchar(' '); findPointer = funIdx; EmtNam(); putchar(10);  
 }
 
 static void EmtFunCall()
@@ -457,18 +476,16 @@ static void EmtJmpEnd()
 
 static void EmtRead()
 {
-  // reg = 'a'; EmtPopReg();
-  // EmtPushRegInd();
   text = opRead; PutTxt();
 }
 
 static void EmtStrInt()
 {
   i = 0;
-  limit = names[namesPointer + 1];
+  limit = info[namesPointer + 1];
   while (i < limit)
   {
-    curVal = names[namesPointer + i + 2];
+    curVal = info[namesPointer + i + 2];
     EmtVal();
     putchar(',');
     i = i + 1;
@@ -483,8 +500,8 @@ static void EmtArrAddr()
 
 static void AddChr()
 {
-  names[namesPointer + 1] = names[namesPointer + 1] + 1;
-  names[namesPointer + names[namesPointer + 1] + 1] = chr;
+  info[namesPointer + 1] = info[namesPointer + 1] + 1;
+  info[namesPointer + info[namesPointer + 1] + 1] = chr;
 }
 
 static void AddCurChr()
@@ -514,25 +531,25 @@ static int IsLetter()
 
 static void SetSym()
 {
-  i = namesPointer + names[namesPointer + 1];
-  names[i + 2] = curSym;
-  names[i + 3] = curVal;
-  names[i + 4] = namesPointer;
-  namesPointer = i + 4;
+  symbolPointer = namesPointer + info[namesPointer + 1];
+  info[symbolPointer + 2] = curSym;
+  info[symbolPointer + 3] = curVal;
+  info[symbolPointer + 4] = namesPointer;
+  namesPointer = symbolPointer + 4;
 }
 
 static int FndSym()
 {
-  i = names[namesPointer];
+  i = info[namesPointer];
   while (1)
   {
-    limit = names[i + 1];
-    if (limit == names[namesPointer + 1])
+    limit = info[i + 1];
+    if (limit == info[namesPointer + 1])
     {
       j = 0;
       while (j < limit)
       {
-        if (names[i + j + 2] != names[namesPointer + j + 2])
+        if (info[i + j + 2] != info[namesPointer + j + 2])
         {
           j = limit;
         }
@@ -540,8 +557,8 @@ static int FndSym()
       }
       if (j == limit)
       {
-        curSym = names[i + names[i + 1] + 2];
-        curVal = names[i + names[i + 1] + 3];
+        curSym = info[i + info[i + 1] + 2];
+        curVal = info[i + info[i + 1] + 3];
         return 1;
       }
     }
@@ -549,7 +566,7 @@ static int FndSym()
     {
       return 0;
     }
-    i = names[i];
+    i = info[i];
   }
 }
 
@@ -578,7 +595,7 @@ static void GetChr()
 
 static void RdTok()
 {
-  names[namesPointer + 1] = 0;
+  info[namesPointer + 1] = 0;
   while ((curChr != eof) && IsWhitespace())
   {
     GetChr();
@@ -999,7 +1016,7 @@ static void ParseExpression()
   }
   if (curTok == tokVar)
   {
-    nameIndex = namesPointer;
+    findPointer = namesPointer;
     EmtPushNam();
     RdTok();
     if (curTok == tokLBracket)
@@ -1146,7 +1163,7 @@ static void ParseBlock()
   {
     if (curTok == tokVar)
     {
-      nameIndex = namesPointer;
+      findPointer = namesPointer;
       EmtPushNam();
       RdTok();
       if (curTok == tokLBracket)
@@ -1312,7 +1329,7 @@ static void ParseDefinition()
     }
     RdTok();
     ParseNumber();
-    names[i + 3] = curVal;
+    info[symbolPointer + 3] = curVal;
     if (curTok != tokSemicolon)
     {
       Fail();
@@ -1335,12 +1352,12 @@ static void ParseDefinition()
     {
       Fail();
     }
-    nameIndex = namesPointer;
+    findPointer = namesPointer;
     SetSym();
     RdTok();
     if (curTok == tokLParen)
     {
-      names[i + 2] = symFun;
+      info[symbolPointer + 2] = symFun;
       EmtTxtSeg();
       EmtFun();
       RdTok();
@@ -1353,10 +1370,10 @@ static void ParseDefinition()
       EmtRet();
       return;
     }
-    names[i + 2] = symVar;
+    info[symbolPointer + 2] = symVar;
     EmtDatSeg();
     EmtDcl();
-    curVal = 1;
+    curVal = 1; // default value
     if (curTok == tokLBracket)
     {
       curVal = 0;
