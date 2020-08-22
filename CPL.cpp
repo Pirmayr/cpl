@@ -22,7 +22,6 @@ const int chrMinus = 45;
 const int chrNine = 57;
 const int chrPercent = 37;
 const int chrPipe = 124;
-const int chrPlus = 43;
 const int chrQuote = 34;
 const int chrRBrace = 125;
 const int chrRBracket = 93;
@@ -33,6 +32,8 @@ const int chrSpace = 32;
 const int chrUpperA = 65;
 const int chrUpperZ = 90;
 const int chrZero = 48;
+
+
 const int eof = 0;
 const int valuesSize = 1000;
 const int infoSize = 5000;
@@ -41,7 +42,10 @@ const int symFun = 1;
 const int symKeyword = 4;
 const int symUnknown = 5;
 const int symVar = 0;
-const int tokAdd = 13;
+
+const int chrPlus = 43;
+const int tokAdd = 43;
+
 const int tokAnd = 18;
 const int tokAssign = 30;
 const int tokConst = 22;
@@ -78,6 +82,8 @@ const int tokSub = 20;
 const int tokVar = 32;
 const int tokVoid = 29;
 const int tokWhile = 24;
+
+
 
 static char curTxtChr;
 static char datSeg[] = "section '.data' data readable writeable";
@@ -134,6 +140,8 @@ static int textIndex;
 static int values[valuesSize];
 static int valuesPointer; // index of the top-most value in "values"
 static char txtFail[] = "fail\n";
+
+
 
 static void PutNumber()
 {
@@ -305,11 +313,6 @@ static void EmtPush()
   putchar('p'); putchar('u'); putchar('s'); putchar('h');
 }
 
-static void aEmtNam()
-{
-  nameIndex = findPointer; PutName();
-}
-
 static void EmtVal()
 {
   number = curVal;
@@ -430,17 +433,17 @@ static void EmtOperation()
 {
   reg = 'b'; EmtPopReg();
   reg = 'a'; EmtPopReg();
-  if ((op == tokDiv) || (op == tokMod))
+  if ((op == tokDiv) | (op == tokMod))
   {
     EmtMov(); putchar(' '); reg = 'd'; EmtReg(); putchar(','); curVal = 0; EmtVal(); putchar(10);
   }
   EmtOp(); putchar(' '); 
-  if ((op == tokAdd) || (op == tokSub) || (op == tokAnd) || (op == tokOr))
+  if ((op == tokAdd) | (op == tokSub) | (op == tokAnd) | (op == tokOr))
   {
     reg = 'a'; EmtReg(); putchar(',');
   }
   reg = 'b'; EmtReg(); putchar(10);
-  if ((op == tokAdd) || (op == tokSub) || (op == tokMul) || (op == tokDiv) || (op == tokAnd) || (op == tokOr))
+  if ((op == tokAdd) | (op == tokSub) | (op == tokMul) | (op == tokDiv) | (op == tokAnd) | (op == tokOr))
   {
     reg = 'a';
   }
@@ -501,20 +504,6 @@ static void EmtRead()
   text = opRead; PutTxt();
 }
 
-static void aEmtStrInt()
-{
-  i = 0;
-  limit = info[namesPointer + 1];
-  while (i < limit)
-  {
-    curVal = info[namesPointer + i + 2];
-    EmtVal();
-    putchar(',');
-    i = i + 1;
-  }
-  putchar('0');
-}
-
 static void EmtStrInt()
 {
   text = opNumbers; nameIndices[0] = namesPointer; PutTxt(); 
@@ -539,22 +528,22 @@ static void AddCurChr()
 
 static int IsCtrl()
 {
-  return (curChr < chrSpace) || (chrDel <= curChr);
+  return (curChr < chrSpace) | (chrDel <= curChr);
 }
 
 static int IsWhitespace()
 {
-  return IsCtrl() || (curChr == ' ');
+  return IsCtrl() | (curChr == ' ');
 }
 
 static int IsDigit()
 {
-  return (chrZero <= curChr) && (curChr <= chrNine);
+  return (chrZero <= curChr) & (curChr <= chrNine);
 }
 
 static int IsLetter()
 {
-  return ((chrLowerA <= curChr) && (curChr <= chrLowerZ)) || ((chrUpperA <= curChr) && (curChr <= chrUpperZ));
+  return ((chrLowerA <= curChr) & (curChr <= chrLowerZ)) | ((chrUpperA <= curChr) & (curChr <= chrUpperZ));
 }
 
 static void SetSym()
@@ -611,9 +600,9 @@ static void GetNxtChr()
 static void GetChr()
 {
   GetNxtChr();
-  while ((curChr == '/') && (nxtChr == '/'))
+  while ((curChr == '/') & (nxtChr == '/'))
   {
-    while ((curChr != eof) && (curChr != 10))
+    while ((curChr != eof) & (curChr != 10))
     {
       GetNxtChr();
     }
@@ -621,10 +610,10 @@ static void GetChr()
   }
 }
 
-static void RdTok()
+static void GetToken()
 {
   info[namesPointer + 1] = 0;
-  while ((curChr != eof) && IsWhitespace())
+  while ((curChr != eof) & IsWhitespace())
   {
     GetChr();
   }
@@ -756,23 +745,13 @@ static void RdTok()
   if (curChr == chrAmpersand)
   {
     GetChr();
-    if (curChr == chrAmpersand)
-    {
-      GetChr();
-      curTok = tokAnd;
-      return;
-    }
+    curTok = tokAnd;
     return;
   }
   if (curChr == chrPipe)
   {
     GetChr();
-    if (curChr == chrPipe)
-    {
-      GetChr();
-      curTok = tokOr;
-      return;
-    }
+    curTok = tokOr;
     return;
   }
   if (curChr == chrHash)
@@ -799,7 +778,7 @@ static void RdTok()
   if (curChr == chrQuote)
   {
     GetChr();
-    while ((curChr != eof) && (curChr != chrQuote))
+    while ((curChr != eof) & (curChr != chrQuote))
     {
       if (curChr == chrBackslash)
       {
@@ -821,7 +800,7 @@ static void RdTok()
   }
   if (IsLetter())
   {
-    while ((curChr != eof) && IsLetter())
+    while ((curChr != eof) & IsLetter())
     {
       AddCurChr();
       GetChr();
@@ -856,7 +835,7 @@ static void RdTok()
   if (IsDigit())
   {
     curVal = 0;
-    while ((curChr != eof) && IsDigit())
+    while ((curChr != eof) & IsDigit())
     {
       curVal = (curVal * 10) + (curChr - chrZero);
       AddCurChr();
@@ -1000,180 +979,180 @@ static void Init()
   nxtChr = 0;
   GetNxtChr();
   GetChr();
-  RdTok();
+  GetToken();
 }
 
 static void ParseNumber()
 {
   if (curTok == tokSub)
   {
-    RdTok();
+    GetToken();
     if (curTok != tokNumber)
     {
       Fail();
     }
     curVal = -curVal;
-    RdTok();
+    GetToken();
     return;
   }
   if (curTok != tokNumber)
   {
     Fail();
   }
-  RdTok();
+  GetToken();
 }
 
 static void ParseExpression()
 {
   if (curTok == tokNot)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     EmtNot();
   }
   if (curTok == tokSub)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     EmtNeg();
   }
   if (curTok == tokNumber)
   {
     EmtPushVal();
-    RdTok();
+    GetToken();
   }
   if (curTok == tokVar)
   {
     findPointer = namesPointer;
     EmtPushName();
-    RdTok();
+    GetToken();
     if (curTok == tokLBracket)
     {
       EmtRead();
-      RdTok();
+      GetToken();
       ParseExpression();
       if (curTok != tokRBracket)
       {
         Fail();
       }
       EmtAddIdx();
-      RdTok();
+      GetToken();
     }
     EmtRead();
   }
   if (curTok == tokFun)
   {
     funIdx = i;
-    RdTok();
+    GetToken();
     if (curTok != tokLParen)
     {
       Fail();
     }
-    RdTok();
+    GetToken();
     if (curTok != tokRParen)
     {
       Fail();
     }
     EmtFunCall();
-    RdTok();
+    GetToken();
   }
   if (curTok == tokLParen)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     if (curTok != tokRParen)
     {
       Fail();
     }
-    RdTok();
+    GetToken();
   }
   if (curTok == tokAdd)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     op = tokAdd;
     EmtOperation();
   }
   if (curTok == tokSub)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     op = tokSub;
     EmtOperation();
   }
   if (curTok == tokMul)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     op = tokMul;
     EmtOperation();
   }
   if (curTok == tokDiv)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     op = tokDiv;
     EmtOperation();
   }
   if (curTok == tokMod)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     op = tokMod;
     EmtOperation();
   }
   if (curTok == tokAnd)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     op = tokAnd;
     EmtOperation();
   }
   if (curTok == tokOr)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     op = tokOr;
     EmtOperation();
   }
   if (curTok == tokEqual)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     // text = opCmp; strings[0] = opJne; PutTxt();
     text = opTeq; PutTxt();
   }
   if (curTok == tokNotEqual)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     // text = opCmp; strings[0] = opJeq; PutTxt();
     text = opTne; PutTxt();
   }
   if (curTok == tokLess)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     // text = opCmp; strings[0] = opJge; PutTxt();
     text = opTls; PutTxt();
   }
   if (curTok == tokLessOrEqual)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     // text = opCmp; strings[0] = opJgr; PutTxt();
     text = opTle; PutTxt();
   }
   if (curTok == tokGreater)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     // text = opCmp; strings[0] = opJle; PutTxt();
     text = opTgr; PutTxt();
   }
   if (curTok == tokGreaterOrEqual)
   {
-    RdTok();
+    GetToken();
     ParseExpression();
     // text = opCmp; strings[0] = opJls; PutTxt();
     text = opTge; PutTxt();
@@ -1186,49 +1165,49 @@ static void ParseBlock()
   {
     Fail();
   }
-  RdTok();
-  while ((curTok == tokVar) || (curTok == tokFun) || (curTok == tokReturn) || (curTok == tokIf) || (curTok == tokWhile))
+  GetToken();
+  while ((curTok == tokVar) | (curTok == tokFun) | (curTok == tokReturn) | (curTok == tokIf) | (curTok == tokWhile))
   {
     if (curTok == tokVar)
     {
       findPointer = namesPointer;
       EmtPushName();
-      RdTok();
+      GetToken();
       if (curTok == tokLBracket)
       {
         EmtRead();
-        RdTok();
+        GetToken();
         ParseExpression();
         if (curTok != tokRBracket)
         {
           Fail();
         }
         EmtAddIdx();
-        RdTok();
+        GetToken();
       }
       if (curTok != tokAssign)
       {
         Fail();
       }
-      RdTok();
+      GetToken();
       ParseExpression();
       if (curTok != tokSemicolon)
       {
         Fail();
       }
       EmtAsgn();
-      RdTok();
+      GetToken();
     }
     if (curTok == tokFun)
     {
       funIdx = i;
-      RdTok();
+      GetToken();
       if (curTok != tokLParen)
       {
         Fail();
       }
-      RdTok();
-      if ((curTok == tokNot) || (curTok == tokSub) || (curTok == tokNumber) || (curTok == tokVar) || (curTok == tokFun) || (curTok == tokLParen))
+      GetToken();
+      if ((curTok == tokNot) | (curTok == tokSub) | (curTok == tokNumber) | (curTok == tokVar) | (curTok == tokFun) | (curTok == tokLParen))
       {
         ParseExpression();
       }
@@ -1237,16 +1216,16 @@ static void ParseBlock()
         Fail();
       }
       EmtProcCall();
-      RdTok();
+      GetToken();
       if (curTok != tokSemicolon)
       {
         Fail();
       }
-      RdTok();
+      GetToken();
     }
     if (curTok == tokReturn)
     {
-      RdTok();
+      GetToken();
       if (curTok != tokSemicolon)
       {
         ParseExpression();
@@ -1257,45 +1236,45 @@ static void ParseBlock()
         Fail();
       }
       EmtRet();
-      RdTok();
+      GetToken();
     }
     if (curTok == tokIf)
     {
-      RdTok();
+      GetToken();
       if (curTok != tokLParen)
       {
         Fail();
       }
       PushValue();
-      RdTok();
+      GetToken();
       ParseExpression();
       if (curTok != tokRParen)
       {
         Fail();
       }
       EmtJmpEnd();
-      RdTok();
+      GetToken();
       ParseBlock();
       EmtEnd();
       PopValue();
     }
     if (curTok == tokWhile)
     {
-      RdTok();
+      GetToken();
       if (curTok != tokLParen)
       {
         Fail();
       }
       PushValue();
       EmtBegin();
-      RdTok();
+      GetToken();
       ParseExpression();
       if (curTok != tokRParen)
       {
         Fail();
       }
       EmtJmpEnd();
-      RdTok();
+      GetToken();
       ParseBlock();
       EmtJmpBegin();
       EmtEnd();
@@ -1306,74 +1285,74 @@ static void ParseBlock()
   {
     Fail();
   }
-  RdTok();
+  GetToken();
 }
 
 static void ParseDefinition()
 {
   if (curTok == tokHash)
   {
-    RdTok();
+    GetToken();
     if (curTok != tokInclude)
     {
       Fail();
     }
-    RdTok();
+    GetToken();
     if (curTok != tokLess)
     {
       Fail();
     }
-    RdTok();
+    GetToken();
     if (curTok != tokName)
     {
       Fail();
     }
-    RdTok();
+    GetToken();
     if (curTok != tokGreater)
     {
       Fail();
     }
-    RdTok();
+    GetToken();
     return;
   }
   if (curTok == tokConst)
   {
-    RdTok();
+    GetToken();
     if (curTok != tokInt)
     {
       Fail();
     }
-    RdTok();
+    GetToken();
     if (curTok != tokName)
     {
       Fail();
     }
     curSym = symConst;
     SetSym();
-    RdTok();
+    GetToken();
     if (curTok != tokAssign)
     {
       Fail();
     }
-    RdTok();
+    GetToken();
     ParseNumber();
     info[symbolPointer + 3] = curVal;
     if (curTok != tokSemicolon)
     {
       Fail();
     }
-    RdTok();
+    GetToken();
     return;
   }
-  if ((curTok == tokStatic) || (curTok == tokVoid) || (curTok == tokInt))
+  if ((curTok == tokStatic) | (curTok == tokVoid) | (curTok == tokInt))
   {
-    RdTok();
-    if ((curTok == tokVoid) || (curTok == tokInt))
+    GetToken();
+    if ((curTok == tokVoid) | (curTok == tokInt))
     {
-      RdTok();
+      GetToken();
       if (curTok == tokMul)
       {
-        RdTok();
+        GetToken();
       }
     }
     if (curTok != tokName)
@@ -1382,18 +1361,18 @@ static void ParseDefinition()
     }
     findPointer = namesPointer;
     SetSym();
-    RdTok();
+    GetToken();
     if (curTok == tokLParen)
     {
       info[symbolPointer + 2] = symFun;
       EmtTxtSeg();
       EmtFun();
-      RdTok();
+      GetToken();
       if (curTok != tokRParen)
       {
         Fail();
       }
-      RdTok();
+      GetToken();
       ParseBlock();
       EmtRet();
       return;
@@ -1406,27 +1385,27 @@ static void ParseDefinition()
     {
       curVal = 0;
       EmtArrAddr();
-      RdTok();
+      GetToken();
       if (curTok == tokNumber)
       {
-        RdTok();
+        GetToken();
       }
       if (curTok == tokRBracket)
       {
-        RdTok();
+        GetToken();
       }
     }
     hasInit = 0;
     if (curTok == tokAssign)
     {
       hasInit = 1;
-      RdTok();
+      GetToken();
       if (curTok != tokString)
       {
         Fail();
       }
       EmtStrInt();
-      RdTok();
+      GetToken();
     }
     if (curTok != tokSemicolon)
     {
@@ -1437,13 +1416,13 @@ static void ParseDefinition()
       EmtDup(); 
     }
     putchar(10);
-    RdTok();
+    GetToken();
   }
 }
 
 static void ParseCpl()
 {
-  while ((curTok == tokHash) || (curTok == tokConst) || (curTok == tokStatic) || (curTok == tokVoid) || (curTok == tokInt))
+  while ((curTok == tokHash) | (curTok == tokConst) | (curTok == tokStatic) | (curTok == tokVoid) | (curTok == tokInt))
   {
     ParseDefinition();
   }
@@ -1458,3 +1437,4 @@ int main()
   Init();
   ParseCpl();
 }
+
