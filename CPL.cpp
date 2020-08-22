@@ -27,12 +27,14 @@ const int LeftBracket = 91;
 const int LeftParenthesis = 40;
 const int Less = 60;
 const int LessOrEqual = 8;
+const int LineFeed = 10;
 const int LowerA = 97;
+const int LowerN = 110;
 const int LowerZ = 122;
 const int Minus = 45;
 const int Name = 9;
 const int Nine = 57;
-const int NotEqual = 10;
+const int NotEqual = 22;
 const int Number = 11;
 const int Percent = 37;
 const int Pipe = 124;
@@ -357,7 +359,7 @@ static void EmtReg()
   putchar('e'); putchar(reg); putchar('x'); 
 }
 
-static void EmtPushName()
+static void EmtPushFind()
 {
   text = opPushName; nameIndices[0] = findPointer; PutTxt();
 }
@@ -586,83 +588,7 @@ static void GetToken()
   {
     GetChr();
   }
-  curTok = Eof;
-  if (curChr == Eof)
-  {
-    return;
-  }
-  if (curChr == LeftBrace)
-  {
-    GetChr();
-    curTok = LeftBrace;
-    return;
-  }
-  if (curChr == LeftBracket)
-  {
-    GetChr();
-    curTok = LeftBracket;
-    return;
-  }
-  if (curChr == LeftParenthesis)
-  {
-    GetChr();
-    curTok = LeftParenthesis;
-    return;
-  }
-  if (curChr == RightBrace)
-  {
-    GetChr();
-    curTok = RightBrace;
-    return;
-  }
-  if (curChr == RightBracket)
-  {
-    GetChr();
-    curTok = RightBracket;
-    return;
-  }
-  if (curChr == RightParenthesis)
-  {
-    GetChr();
-    curTok = RightParenthesis;
-    return;
-  }
-  if (curChr == Semicolon)
-  {
-    GetChr();
-    curTok = Semicolon;
-    return;
-  }
-  if (curChr == Plus)
-  {
-    GetChr();
-    curTok = Plus;
-    return;
-  }
-  if (curChr == Minus)
-  {
-    GetChr();
-    curTok = Minus;
-    return;
-  }
-  if (curChr == Asterisk)
-  {
-    GetChr();
-    curTok = Asterisk;
-    return;
-  }
-  if (curChr == Slash)
-  {
-    GetChr();
-    curTok = Slash;
-    return;
-  }
-  if (curChr == Percent)
-  {
-    GetChr();
-    curTok = Percent;
-    return;
-  }
+  curTok = curChr;
   if (curChr == EqualsSign)
   {
     GetChr();
@@ -672,7 +598,6 @@ static void GetToken()
       curTok = Equal;
       return;
     }
-    curTok = EqualsSign;
     return;
   }
   if (curChr == ExclamationMark)
@@ -684,7 +609,6 @@ static void GetToken()
       curTok = NotEqual;
       return;
     }
-    curTok = ExclamationMark;
     return;
   }
   if (curChr == Less)
@@ -696,7 +620,6 @@ static void GetToken()
       curTok = LessOrEqual;
       return;
     }
-    curTok = Less;
     return;
   }
   if (curChr == Greater)
@@ -708,40 +631,18 @@ static void GetToken()
       curTok = GreaterOrEqual;
       return;
     }
-    curTok = Greater;
-    return;
-  }
-  if (curChr == Ampersand)
-  {
-    GetChr();
-    curTok = Ampersand;
-    return;
-  }
-  if (curChr == Pipe)
-  {
-    GetChr();
-    curTok = Pipe;
-    return;
-  }
-  if (curChr == Hash)
-  {
-    GetChr();
-    curTok = Hash;
     return;
   }
   if (curChr == Apostrophe)
   {
     GetChr();
-    if (!IsCtrl())
+    curVal = curChr;
+    GetChr();
+    if (curChr == Apostrophe)
     {
-      curVal = curChr;
       GetChr();
-      if (curChr == Apostrophe)
-      {
-        GetChr();
-        curTok = Number;
-        return;
-      }
+      curTok = Number;
+      return;
     }
   }
   if (curChr == Quote)
@@ -752,9 +653,9 @@ static void GetToken()
       if (curChr == Backslash)
       {
         GetChr();
-        if (curChr == 'n')
+        if (curChr == LowerN)
         {
-          curChr = 10;
+          curChr = LineFeed;
         }
       }
       AddCurChr();
@@ -813,7 +714,7 @@ static void GetToken()
     curTok = Number;
     return;
   }
-  Fail();
+  GetChr();
 }
 
 static void Init()
@@ -951,6 +852,11 @@ static void Init()
   GetToken();
 }
 
+static int IsStatementStart()
+{
+  return (curTok == Variable) | (curTok == Function) | (curTok == Return) | (curTok == If) | (curTok == While);
+}
+
 static void ParseNumber()
 {
   if (curTok == Minus)
@@ -993,7 +899,7 @@ static void ParseExpression()
   if (curTok == Variable)
   {
     findPointer = namesPointer;
-    EmtPushName();
+    EmtPushFind();
     GetToken();
     if (curTok == LeftBracket)
     {
@@ -1088,42 +994,36 @@ static void ParseExpression()
   {
     GetToken();
     ParseExpression();
-    // text = opCmp; strings[0] = opJne; PutTxt();
     text = opTeq; PutTxt();
   }
   if (curTok == NotEqual)
   {
     GetToken();
     ParseExpression();
-    // text = opCmp; strings[0] = opJeq; PutTxt();
     text = opTne; PutTxt();
   }
   if (curTok == Less)
   {
     GetToken();
     ParseExpression();
-    // text = opCmp; strings[0] = opJge; PutTxt();
     text = opTls; PutTxt();
   }
   if (curTok == LessOrEqual)
   {
     GetToken();
     ParseExpression();
-    // text = opCmp; strings[0] = opJgr; PutTxt();
     text = opTle; PutTxt();
   }
   if (curTok == Greater)
   {
     GetToken();
     ParseExpression();
-    // text = opCmp; strings[0] = opJle; PutTxt();
     text = opTgr; PutTxt();
   }
   if (curTok == GreaterOrEqual)
   {
     GetToken();
     ParseExpression();
-    // text = opCmp; strings[0] = opJls; PutTxt();
     text = opTge; PutTxt();
   }
 }
@@ -1135,12 +1035,12 @@ static void ParseBlock()
     Fail();
   }
   GetToken();
-  while ((curTok == Variable) | (curTok == Function) | (curTok == Return) | (curTok == If) | (curTok == While))
+  while (IsStatementStart())
   {
     if (curTok == Variable)
     {
       findPointer = namesPointer;
-      EmtPushName();
+      EmtPushFind();
       GetToken();
       if (curTok == LeftBracket)
       {
