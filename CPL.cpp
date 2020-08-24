@@ -1,13 +1,15 @@
 #include <cstdio>
 #include <cstdlib>
 
+const int Add = 10;
 const int Ampersand = 38;
+const int And = 15;
 const int Apostrophe = 39;
 const int Asterisk = 42;
-const int AtSign = 64;
 const int Backslash = 92;
 const int Constant = 1;
 const int Delete = 127;
+const int Div = 13;
 const int Dollar = 36;
 const int Eof = 0;
 const int Equal = 2;
@@ -19,7 +21,7 @@ const int GreaterOrEqual = 4;
 const int Hash = 35;
 const int If = 5;
 const int Include = 6;
-const int InfoSize = 5000;
+const int ItemsSize = 5000;
 const int Int = 7;
 const int Keyword = 20;
 const int LeftBrace = 123;
@@ -32,10 +34,13 @@ const int LowerA = 97;
 const int LowerN = 110;
 const int LowerZ = 122;
 const int Minus = 45;
+const int Mod = 14;
+const int Mul = 12;
 const int Name = 9;
 const int Nine = 57;
 const int NotEqual = 22;
 const int Number = 11;
+const int Or = 16;
 const int Percent = 37;
 const int Pipe = 124;
 const int Plus = 43;
@@ -49,6 +54,13 @@ const int Slash = 47;
 const int Space = 32;
 const int Static = 13;
 const int String = 14;
+const int Sub = 11;
+const int Teq = 17;
+const int Tge = 22;
+const int Tgr = 21;
+const int Tle = 20;
+const int Tls = 19;
+const int Tne = 18;
 const int Unknown = 21;
 const int UpperA = 65;
 const int UpperZ = 90;
@@ -60,7 +72,7 @@ const int Zero = 48;
 
 static char curTxtChr;
 static char datSeg[] = "section '.data' data readable writeable";
-static char hdr[] = "format PE Console\nentry start\nsection '.idata' import data readable writeable\ndd 0\ndd 0\ndd 0\ndd rva kernelName\ndd rva kernelTable\ndd 0\ndd 0\ndd 0\ndd 0\ndd 0\nkernelTable:\nExitProcess dd rva exitProcess\nReadFile dd rva readFile\nWriteFile dd rva writeFile\nGetStdHandle dd rva getStdHandle\ndd 0\nkernelName:\ndb 'KERNEL32.DLL',0\nexitProcess:\ndw 0\ndb 'ExitProcess',0\nreadFile:\ndw 0\ndb 'ReadFile',0\nwriteFile:\ndw 0\ndb 'WriteFile',0\ngetStdHandle:\ndw 0\ndb 'GetStdHandle',0\nsection '.data' data readable writeable\nstdInHandle dd ?\nstdOutHandle dd ?\nioChr db ?\nbytesCount dd ?\nsection '.text' code readable executable\nexit:\ncall [ExitProcess]\ngetchar:\npush ebp\nmov ebp, esp\nmov [ioChr], 0\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdInHandle]\ncall [ReadFile]\nmov eax, 0\nmov al, [ioChr]\npop ebp\nret 0 \nputchar:\npush ebp\nmov ebp, esp\nmov eax, [ebp + 8]\nmov [ioChr], al\npush 0\npush bytesCount\npush 1\npush ioChr\npush [stdOutHandle]\ncall [WriteFile]\npop ebp\nret 4 \nteq:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njne @f\ninc ecx\n@@: push ecx\njmp edx\ntne:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\nje @f\ninc ecx\n@@: push ecx\njmp edx\ntls:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njge @f\ninc ecx\n@@: push ecx\njmp edx\ntle:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njg @f\ninc ecx\n@@: push ecx\njmp edx\ntgr:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njle @f\ninc ecx\n@@: push ecx\njmp edx\ntge:\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\njl @f\ninc ecx\n@@: push ecx\njmp edx\nadi:\npop edx\npop ebx\npop eax\nlea eax,[eax+4*ebx]\npush eax\njmp edx\nstart:\npush 0FFFFFFF6h\ncall [GetStdHandle]\nmov [stdInHandle], eax \npush 0FFFFFFF5h\ncall [GetStdHandle]\nmov [stdOutHandle], eax \ncall main\npush 0\ncall [ExitProcess]\n";
+static char hdr[] = "format PE Console\nentry start\nmacro opr k,o\n{\npop ecx\npop ebx\npop eax\nif o eq\nk eax,ebx\npush eax\nelse\nxor edx,edx\nk ebx\npush o\nend if\njmp ecx\n}\nmacro tst k\n{\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\nk @f\ninc ecx\n@@: push ecx\njmp edx\n}\nsection '.idata' import data readable writeable\ndd 0,0,0\ndd rva kernelName\ndd rva kernelTable\ndd 0,0,0,0,0\nkernelTable:\nExitProcess dd rva exitProcess\nReadFile dd rva readFile\nWriteFile dd rva writeFile\nGetStdHandle dd rva getStdHandle\ndd 0\nkernelName:db 'KERNEL32.DLL',0\nexitProcess:db 0,0,'ExitProcess',0\nreadFile:db 0,0,'ReadFile',0\nwriteFile:db 0,0,'WriteFile',0\ngetStdHandle:db 0,0,'GetStdHandle',0\nsection '.data' data readable writeable\nih dd ?\noh dd ?\nio db ?\nbc dd ?\nsection '.text' code readable executable\nexit:\ncall [ExitProcess]\ngetchar:\npush ebp\nmov ebp, esp\nmov [io], 0\npush 0\npush bc\npush 1\npush io\npush [ih]\ncall [ReadFile]\nmov eax, 0\nmov al, [io]\npop ebp\nret 0 \nputchar:\npush ebp\nmov ebp, esp\nmov eax, [ebp + 8]\nmov [io], al\npush 0\npush bc\npush 1\npush io\npush [oh]\ncall [WriteFile]\npop ebp\nret 4 \no10:opr add\no11:opr sub\no12:opr mul,eax\no13:opr div,eax\no14:opr div,edx\no15:opr and\no16:opr or\no17:tst jne\no18:tst je\no19:tst jge\no20:tst jg\no21:tst jle\no22:tst jl\nadi:\npop edx\npop ebx\npop eax\nlea eax,[eax+4*ebx]\npush eax\njmp edx\nstart:\npush 0FFFFFFF6h\ncall [GetStdHandle]\nmov [ih], eax \npush 0FFFFFFF5h\ncall [GetStdHandle]\nmov [oh], eax \ncall main\npush 0\ncall [ExitProcess]\n";
 static char jmpBegin[] = "jmp b#0\n";
 static char jmpEnd[] = "pop eax\ncmp eax,0\nje e#0\n";
 static char opAdi[] = "call adi\n";
@@ -72,45 +84,40 @@ static char opFun[] = "%0:\n";
 static char opNumbers[] = "&0";
 static char opPushName[] = "push %0\n";
 static char opRead[] = "pop eax\npush dword[eax]\n";
-static char opTeq[] = "call teq\n";
-static char opTge[] = "call tge\n";
-static char opTgr[] = "call tgr\n";
-static char opTle[] = "call tle\n";
-static char opTls[] = "call tls\n";
-static char opTne[] = "call tne\n";
+static char opSbr[] = "call o#0\n";
 static char opWrite[] = "pop ebx\npop eax\nmov [eax],ebx\n";
 static char txtFail[] = "fail\n";
 static char txtSeg[] = "section '.text' code readable executable";
 static char* string;
 static char* strings[10]; // texts for string placeholders
-static char* text; // Test to be put out.
+static char* text; // Text to be put out.
 static int buffer[12];
 static int bufferIndex;
-static int chr;
 static int curChr;
 static int curSym;
 static int curTok;
 static int curVal;
-static int findPointer; // index of the find in "info" by calling "FdSym"
+static int findPointer; // index of the find in "items" by calling "FdSym"
 static int funIdx;
 static int hasInit;
 static int i;
-static int info[InfoSize]; // various information (e.g. names) necessary during compilation
+static int items[ItemsSize]; // various information (e.g. names) necessary during compilation
 static int j;
 static int limit;
 static int minusOne;
 static int nameIndex;
 static int nameIndices[10]; // indices for name placeholders
-static int namesPointer; // index of the top-most name in "info"
+static int namesPointer; // index of the top-most name in "items"
+static int nextLabel;
 static int number;
 static int numbers[10]; // numbers for number placeholders
 static int nxtChr;
-static int nxtLab;
 static int op;
 static int reg;
 static int stringIndex;
-static int symbolPointer; // index of the newly defined symbol in "info".
+static int symbolPointer; // index of the newly defined symbol in "items".
 static int textIndex;
+static int value;
 static int values[ValuesSize];
 static int valuesPointer; // index of the top-most value in "values"
 
@@ -145,10 +152,10 @@ static void PutString()
 static void PutName()
 {
   i = 0;
-  limit = info[nameIndex + 1];
+  limit = items[nameIndex + 1];
   while (i < limit)
   {
-    putchar(info[nameIndex + i + 2]);
+    putchar(items[nameIndex + i + 2]);
     i = i + 1;
   }
 }
@@ -156,10 +163,10 @@ static void PutName()
 static void PutNumbers()
 {
   i = 0;
-  limit = info[nameIndex + 1];
+  limit = items[nameIndex + 1];
   while (i < limit)
   {
-    number = info[nameIndex + i + 2]; PutNumber();
+    number = items[nameIndex + i + 2]; PutNumber();
     putchar(',');
     i = i + 1;
   }
@@ -240,8 +247,16 @@ static void Fail()
 static void PushValue()
 {
   valuesPointer = valuesPointer + 1;
-  values[valuesPointer] = nxtLab;
-  nxtLab = nxtLab + 1;
+  values[valuesPointer] = value;
+}
+
+static void PushLabel()
+{
+  // valuesPointer = valuesPointer + 1;
+  // values[valuesPointer] = nextLabel;
+  value = nextLabel;
+  PushValue();
+  nextLabel = nextLabel + 1;
 }
 
 static void PopValue()
@@ -292,13 +307,11 @@ static void EmtVal()
 
 static void EmtDcl()
 {
-  // EmtNam(); putchar(' '); putchar('d'); putchar('d'); putchar(' ');
   text = opDeclaration; nameIndices[0] = findPointer; PutTxt();
 }
 
 static void EmtDup()
 {
-  // EmtVal(); putchar(' '); putchar('d'); putchar('u'); putchar('p'); putchar('('); putchar('?'); putchar(')');
   text = opDup; numbers[0] = curVal; PutTxt();
 }
 
@@ -400,31 +413,6 @@ static void EmtFunCall()
   reg = 'a'; EmtPushReg();
 }
 
-static void EmtOperation()
-{
-  reg = 'b'; EmtPopReg();
-  reg = 'a'; EmtPopReg();
-  if ((op == Slash) | (op == Percent))
-  {
-    EmtMov(); putchar(' '); reg = 'd'; EmtReg(); putchar(','); curVal = 0; EmtVal(); putchar(10);
-  }
-  EmtOp(); putchar(' '); 
-  if ((op == Plus) | (op == Minus) | (op == Ampersand) | (op == Pipe))
-  {
-    reg = 'a'; EmtReg(); putchar(',');
-  }
-  reg = 'b'; EmtReg(); putchar(10);
-  if ((op == Plus) | (op == Minus) | (op == Asterisk) | (op == Slash) | (op == Ampersand) | (op == Pipe))
-  {
-    reg = 'a';
-  }
-  if (op == Percent)
-  {
-    reg = 'd';
-  }
-  EmtPushReg();
-}
-
 static void EmtNot()
 {
   EmtMov(); putchar(' '); reg = 'c'; EmtReg(); putchar(','); curVal = 1; EmtVal(); putchar(10);
@@ -482,19 +470,13 @@ static void EmtStrInt()
 
 static void EmtArrAddr()
 {
-  // putchar('$'); putchar('+'); putchar('4'); putchar(',');
   text = opArrAddr; PutTxt();
-}
-
-static void AddChr()
-{
-  info[namesPointer + 1] = info[namesPointer + 1] + 1;
-  info[namesPointer + info[namesPointer + 1] + 1] = chr;
 }
 
 static void AddCurChr()
 {
-  chr = curChr; AddChr();
+  items[namesPointer + 1] = items[namesPointer + 1] + 1;
+  items[namesPointer + items[namesPointer + 1] + 1] = curChr;
 }
 
 static int IsCtrl()
@@ -519,42 +501,38 @@ static int IsLetter()
 
 static void SetSym()
 {
-  symbolPointer = namesPointer + info[namesPointer + 1];
-  info[symbolPointer + 2] = curSym;
-  info[symbolPointer + 3] = curVal;
-  info[symbolPointer + 4] = namesPointer;
+  symbolPointer = namesPointer + items[namesPointer + 1];
+  items[symbolPointer + 2] = curSym;
+  items[symbolPointer + 3] = curVal;
+  items[symbolPointer + 4] = namesPointer;
   namesPointer = symbolPointer + 4;
 }
 
 static int FndSym()
 {
-  i = info[namesPointer];
+  i = items[namesPointer];
   while (1)
   {
-    limit = info[i + 1];
-    if (limit == info[namesPointer + 1])
+    limit = items[i + 1] + 2;
+    j = 1;
+    while (j < limit)
     {
-      j = 0;
-      while (j < limit)
+      if (items[i + j] != items[namesPointer + j])
       {
-        if (info[i + j + 2] != info[namesPointer + j + 2])
-        {
-          j = limit;
-        }
-        j = j + 1;
+        j = limit;
       }
-      if (j == limit)
-      {
-        curSym = info[i + info[i + 1] + 2];
-        curVal = info[i + info[i + 1] + 3];
-        return 1;
-      }
+      j = j + 1;
+    }
+    if (j == limit)
+    {
+      curSym = items[i + limit]; curVal = items[i + limit + 1];
+      return 1;
     }
     if (i == minusOne)
     {
       return 0;
     }
-    i = info[i];
+    i = items[i];
   }
 }
 
@@ -583,7 +561,7 @@ static void GetChr()
 
 static void GetToken()
 {
-  info[namesPointer + 1] = 0;
+  items[namesPointer + 1] = 0;
   while ((curChr != Eof) & IsWhitespace())
   {
     GetChr();
@@ -723,7 +701,7 @@ static void Init()
 
   EmtHdr();
 
-  nxtLab = 0;
+  nextLabel = 0;
   valuesPointer = minusOne;
   namesPointer = minusOne;
 
@@ -941,90 +919,114 @@ static void ParseExpression()
     }
     GetToken();
   }
+  op = 0;
   if (curTok == Plus)
   {
-    GetToken();
-    ParseExpression();
-    op = Plus;
-    EmtOperation();
+    // GetToken();
+    // ParseExpression();
+    // op = Plus;
+    // EmtOperation();
+    op = Add;
   }
   if (curTok == Minus)
   {
-    GetToken();
-    ParseExpression();
-    op = Minus;
-    EmtOperation();
+    // GetToken();
+    // ParseExpression();
+    // op = Minus;
+    // EmtOperation();
+    op = Sub;
   }
   if (curTok == Asterisk)
   {
-    GetToken();
-    ParseExpression();
-    op = Asterisk;
-    EmtOperation();
+    // GetToken();
+    // ParseExpression();
+    // op = Asterisk;
+    // EmtOperation();
+    op = Mul;
   }
   if (curTok == Slash)
   {
-    GetToken();
-    ParseExpression();
-    op = Slash;
-    EmtOperation();
+    // GetToken();
+    // ParseExpression();
+    // op = Slash;
+    // EmtOperation();
+    op = Div;
   }
   if (curTok == Percent)
   {
-    GetToken();
-    ParseExpression();
-    op = Percent;
-    EmtOperation();
+    // GetToken();
+    // ParseExpression();
+    // op = Percent;
+    // EmtOperation();
+    op = Mod;
   }
   if (curTok == Ampersand)
   {
-    GetToken();
-    ParseExpression();
-    op = Ampersand;
-    EmtOperation();
+    // GetToken();
+    // ParseExpression();
+    // op = Ampersand;
+    // EmtOperation();
+    op = And;
   }
   if (curTok == Pipe)
   {
-    GetToken();
-    ParseExpression();
-    op = Pipe;
-    EmtOperation();
+    // GetToken();
+    // ParseExpression();
+    // op = Pipe;
+    // EmtOperation();
+    op = Or;
   }
   if (curTok == Equal)
   {
-    GetToken();
-    ParseExpression();
-    text = opTeq; PutTxt();
+    // GetToken();
+    // ParseExpression();
+    // text = opTeq; PutTxt();
+    op = Teq;
   }
   if (curTok == NotEqual)
   {
-    GetToken();
-    ParseExpression();
-    text = opTne; PutTxt();
+    // GetToken();
+    // ParseExpression();
+    // text = opTeq; PutTxt();
+    op = Tne;
   }
   if (curTok == Less)
   {
-    GetToken();
-    ParseExpression();
-    text = opTls; PutTxt();
+    // GetToken();
+    // ParseExpression();
+    // text = opTeq; PutTxt();
+    op = Tls;
   }
   if (curTok == LessOrEqual)
   {
-    GetToken();
-    ParseExpression();
-    text = opTle; PutTxt();
+    // GetToken();
+    // ParseExpression();
+    // text = opTeq; PutTxt();
+    op = Tle;
   }
   if (curTok == Greater)
   {
-    GetToken();
-    ParseExpression();
-    text = opTgr; PutTxt();
+    // GetToken();
+    // ParseExpression();
+    // text = opTeq; PutTxt();
+    op = Tgr;
   }
   if (curTok == GreaterOrEqual)
   {
+    // GetToken();
+    // ParseExpression();
+    // text = opTeq; PutTxt();
+    op = Tge;
+  }
+  if (op)
+  {
     GetToken();
+    value = op;
+    PushValue();
     ParseExpression();
-    text = opTge; PutTxt();
+    op = TopValue();
+    PopValue();
+    text = opSbr; numbers[0] = op; PutTxt();
   }
 }
 
@@ -1114,7 +1116,7 @@ static void ParseBlock()
       {
         Fail();
       }
-      PushValue();
+      PushLabel();
       GetToken();
       ParseExpression();
       if (curTok != RightParenthesis)
@@ -1134,7 +1136,7 @@ static void ParseBlock()
       {
         Fail();
       }
-      PushValue();
+      PushLabel();
       EmtBegin();
       GetToken();
       ParseExpression();
@@ -1205,7 +1207,7 @@ static void ParseDefinition()
     }
     GetToken();
     ParseNumber();
-    info[symbolPointer + 3] = curVal;
+    items[symbolPointer + 3] = curVal;
     if (curTok != Semicolon)
     {
       Fail();
@@ -1233,7 +1235,7 @@ static void ParseDefinition()
     GetToken();
     if (curTok == LeftParenthesis)
     {
-      info[symbolPointer + 2] = Function;
+      items[symbolPointer + 2] = Function;
       EmtTxtSeg();
       EmtFun();
       GetToken();
@@ -1246,7 +1248,7 @@ static void ParseDefinition()
       EmtRet();
       return;
     }
-    info[symbolPointer + 2] = Variable;
+    items[symbolPointer + 2] = Variable;
     EmtDatSeg();
     EmtDcl();
     curVal = 1; // default value
