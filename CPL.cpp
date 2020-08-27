@@ -7,6 +7,8 @@ const int And = 15;
 const int Apostrophe = 39;
 const int Asterisk = 42;
 const int Backslash = 92;
+const int Char = 25;
+const int CharacterVariable = 24;
 const int Constant = 1;
 const int Delete = 127;
 const int Div = 13;
@@ -20,7 +22,7 @@ const int GreaterOrEqual = 4;
 const int Hash = 35;
 const int If = 5;
 const int Include = 6;
-const int ItemsSize = 5000;
+const int ItemsSize = 10000;
 const int Int = 7;
 const int Keyword = 20;
 const int LeftBrace = 123;
@@ -63,25 +65,26 @@ const int Tne = 18;
 const int Unknown = 21;
 const int UpperA = 65;
 const int UpperZ = 90;
-const int ValuesSize = 1000;
 const int Variable = 15;
 const int Void = 16;
 const int While = 17;
 const int Zero = 48;
+const int Assign = 23;
 
 static char addIndex[] = "call adi\n";
-static char arrayAddress[] = " \\$+4,";
+static char arrayAddress[] = " \\$+4\ndb";
 static char beginLabel[] = "b#:\n";
 static char callOperation[] = "call o#\n";
 static char callSubroutine[] = "call %\n";
-static char codes[] = "&";
+static char codes[] = " &";
 static char curTxtChr;
+static char addCharacterIndex[] = "call o10\n";
 static char dataSegment[] = "section '.data' data readable writeable";
 static char declaration[] = "% dd";
 static char duplicate[] = " # dup(?)\n";
 static char endLabel[] = "e#:\n";
 static char function[] = "%:\n";
-static char header[] = "format PE Console\nentry start\nmacro opr k,o\n{\npop ecx\npop ebx\npop eax\nif o eq\nk eax,ebx\npush eax\nelse\nxor edx,edx\nk ebx\npush o\nend if\njmp ecx\n}\nmacro tst k\n{\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\nk @f\ndec ecx\n@@: push ecx\njmp edx\n}\nsection '.idata' import data readable writeable\ndd 0,0,0\ndd rva kernelName\ndd rva kernelTable\ndd 0,0,0,0,0\nkernelTable:\nExitProcess dd rva exitProcess\nReadFile dd rva readFile\nWriteFile dd rva writeFile\nGetStdHandle dd rva getStdHandle\ndd 0\nkernelName:db 'KERNEL32.DLL',0\nexitProcess:db 0,0,'ExitProcess',0\nreadFile:db 0,0,'ReadFile',0\nwriteFile:db 0,0,'WriteFile',0\ngetStdHandle:db 0,0,'GetStdHandle',0\nsection '.data' data readable writeable\nih dd ?\noh dd ?\nio db ?\nbc dd ?\nsection '.text' code readable executable\nexit:\ncall [ExitProcess]\ngetchar:\npush ebp\nmov ebp, esp\nmov [io], 0\npush 0\npush bc\npush 1\npush io\npush [ih]\ncall [ReadFile]\nmov eax, 0\nmov al, [io]\npop ebp\nret 0 \nputchar:\npush ebp\nmov ebp, esp\nmov eax, [ebp + 8]\nmov [io], al\npush 0\npush bc\npush 1\npush io\npush [oh]\ncall [WriteFile]\npop ebp\nret 4 \no10:opr add\no11:opr sub\no12:opr mul,eax\no13:opr div,eax\no14:opr div,edx\no15:opr and\no16:opr or\no17:tst jne\no18:tst je\no19:tst jge\no20:tst jg\no21:tst jle\no22:tst jl\nadi:\npop edx\npop ebx\npop eax\nlea eax,[eax+4*ebx]\npush eax\njmp edx\nlgn:\npop edx\npop eax\ntest eax,eax\nsetz al\nmovzx eax,al\npush eax\njmp edx\nstart:\npush 0FFFFFFF6h\ncall [GetStdHandle]\nmov [ih], eax \npush 0FFFFFFF5h\ncall [GetStdHandle]\nmov [oh], eax \ncall main\npush 0\ncall [ExitProcess]\n";
+static char header[] = "format PE Console\nentry start\nmacro opr k,o\n{\npop ecx\npop ebx\npop eax\nif o eq\nk eax,ebx\npush eax\nelse\nxor edx,edx\nk ebx\npush o\nend if\njmp ecx\n}\nmacro tst k\n{\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\nk @f\ndec ecx\n@@: push ecx\njmp edx\n}\nsection '.idata' import data readable writeable\ndd 0,0,0\ndd rva kernelName\ndd rva kernelTable\ndd 0,0,0,0,0\nkernelTable:\nExitProcess dd rva exitProcess\nReadFile dd rva readFile\nWriteFile dd rva writeFile\nGetStdHandle dd rva getStdHandle\ndd 0\nkernelName:db 'KERNEL32.DLL',0\nexitProcess:db 0,0,'ExitProcess',0\nreadFile:db 0,0,'ReadFile',0\nwriteFile:db 0,0,'WriteFile',0\ngetStdHandle:db 0,0,'GetStdHandle',0\nsection '.data' data readable writeable\nih dd ?\noh dd ?\nio db ?\nbc dd ?\nsection '.text' code readable executable\nexit:\ncall [ExitProcess]\ngetchar:\npush ebp\nmov ebp, esp\nmov [io], 0\npush 0\npush bc\npush 1\npush io\npush [ih]\ncall [ReadFile]\nmov eax, 0\nmov al, [io]\npop ebp\nret 0 \nputchar:\npush ebp\nmov ebp, esp\nmov eax, [ebp + 8]\nmov [io], al\npush 0\npush bc\npush 1\npush io\npush [oh]\ncall [WriteFile]\npop ebp\nret 4 \no10:opr add\no11:opr sub\no12:opr mul,eax\no13:opr div,eax\no14:opr div,edx\no15:opr and\no16:opr or\no17:tst jne\no18:tst je\no19:tst jge\no20:tst jg\no21:tst jle\no22:tst jl\no23:\npop ecx\npop ebx\npop eax\nmov [eax],ebx\npush ebx\njmp ecx\nadi:\npop edx\npop ebx\npop eax\nlea eax,[eax+4*ebx]\npush eax\njmp edx\nlgn:\npop edx\npop eax\ntest eax,eax\nsetz al\nmovzx eax,al\npush eax\njmp edx\nstart:\npush 0FFFFFFF6h\ncall [GetStdHandle]\nmov [ih], eax \npush 0FFFFFFF5h\ncall [GetStdHandle]\nmov [oh], eax \ncall main\npush 0\ncall [ExitProcess]\n";
 static char jumpToBegin[] = "jmp b#\n";
 static char jumpToEnd[] = "pop eax\ncmp eax,0\nje e#\n";
 static char logicalNegation[] = "call lgn\n";
@@ -94,10 +97,7 @@ static char read[] = "pop eax\npush dword[eax]\n";
 static char returnFromSubroutine[] = "ret\n";
 static char fail[] = "fail\n";
 static char textSegment[] = "section '.text' code readable executable";
-static char write[] = "pop ebx\npop eax\nmov [eax],ebx\n";
 static char* text; // text to be put out.
-static int buffer[12];
-static int bufferIndex;
 static int curChr;
 static int curSym;
 static int curTok;
@@ -119,25 +119,34 @@ static int operation;
 static int symbolPointer; // index of the newly defined symbol in "items".
 static int textIndex;
 static int value;
-static int values[ValuesSize];
 static int valuesPointer; // index of the top-most value in "values"
+
+static void PushValue()
+{
+  valuesPointer = valuesPointer - 1;
+  items[valuesPointer] = value;
+}
+
+static void PopValue()
+{
+  valuesPointer = valuesPointer + 1;
+}
+
+static int TopValue()
+{
+  return items[valuesPointer];
+}
 
 static void PutNumber()
 {
-  bufferIndex = 0;
-  buffer[0] = number % 10;
+  value = number % 10; PushValue();
   number = number / 10;
-  while (0 < number)
+  if (number)
   {
-    bufferIndex = bufferIndex + 1;
-    buffer[bufferIndex] = number % 10;
-    number = number / 10;
+    PutNumber();
   }
-  while (0 <= bufferIndex)
-  {
-    putchar(buffer[bufferIndex] + 48);
-    bufferIndex = bufferIndex - 1;
-  }
+  value = TopValue();
+  putchar(value + 48); PopValue();
 }
 
 static void PutName()
@@ -169,7 +178,7 @@ static void ExpandPlaceholders()
   if (curTxtChr == Backslash)
   {
     textIndex = textIndex + 1;
-    curTxtChr = text[textIndex];
+    curTxtChr = text[textIndex] % 256;
     if (curTxtChr == 'n')
     {
       curTxtChr = 10;
@@ -201,7 +210,7 @@ void PutTxt()
   textIndex = 0;
   while (1)
   {
-    curTxtChr = text[textIndex];
+    curTxtChr = text[textIndex] % 256;
     if (!curTxtChr)
     {
       return;
@@ -218,27 +227,11 @@ static void Fail()
   exit(1);
 }
 
-static void PushValue()
-{
-  valuesPointer = valuesPointer + 1;
-  values[valuesPointer] = value;
-}
-
 static void PushLabel()
 {
   value = nextLabel;
   PushValue();
   nextLabel = nextLabel + 1;
-}
-
-static void PopValue()
-{
-  valuesPointer = valuesPointer - 1;
-}
-
-static int TopValue()
-{
-  return values[valuesPointer];
 }
 
 static void EmtDcl()
@@ -286,11 +279,6 @@ static void EmtRet()
   text = returnFromSubroutine; PutTxt();
 }
 
-static void EmtAsgn()
-{
-  text = write; PutTxt();
-}
-
 static void EmtProcCall()
 {
   text = callSubroutine; nameIndex = funIdx; PutTxt();
@@ -310,6 +298,11 @@ static void EmtNot()
 static void EmtNeg()
 {
   text = numericalNegation; PutTxt();
+}
+
+static void EmtAddCharacterIdx()
+{
+  text = addCharacterIndex; PutTxt();
 }
 
 static void EmtAddIdx()
@@ -554,6 +547,11 @@ static void GetToken()
         curTok = Variable;
         return;
       }
+      if (curSym == CharacterVariable)
+      {
+        curTok = CharacterVariable;
+        return;
+      }
       return;
     }
     curTok = Name;
@@ -581,7 +579,7 @@ static void Init()
   EmtHdr();
 
   nextLabel = 0;
-  valuesPointer = minusOne;
+  valuesPointer = ItemsSize;
   namesPointer = minusOne;
 
   curChr = 'c'; AddCurChr();
@@ -651,7 +649,7 @@ static void Init()
   curChr = 'a'; AddCurChr();
   curChr = 'r'; AddCurChr();
   curSym = Keyword;
-  curVal = Int;
+  curVal = Char;
   SetSym();
 
   curChr = 'v'; AddCurChr();
@@ -748,8 +746,9 @@ static void ParseExpression()
     EmtPushVal();
     GetToken();
   }
-  if (curTok == Variable)
+  if ((curTok == Variable) | (curTok == CharacterVariable))
   {
+    value = curTok; PushValue();
     findPointer = namesPointer;
     EmtPushFind();
     GetToken();
@@ -762,13 +761,22 @@ static void ParseExpression()
       {
         Fail();
       }
-      EmtAddIdx();
+      value = TopValue();
+      if (value != CharacterVariable)
+      {
+        EmtAddIdx();
+      }
+      if (value == CharacterVariable)
+      {
+        EmtAddCharacterIdx();
+      }
       GetToken();
     }
     if (curTok != EqualsSign)
     {
       EmtRead();
     }
+    PopValue();
   }
   if (curTok == Function)
   {
@@ -779,6 +787,10 @@ static void ParseExpression()
       Fail();
     }
     GetToken();
+    if (curTok != RightParenthesis)
+    {
+      ParseExpression();
+    }
     if (curTok != RightParenthesis)
     {
       Fail();
@@ -795,13 +807,6 @@ static void ParseExpression()
       Fail();
     }
     GetToken();
-  }
-  if (curTok == EqualsSign)
-  {
-    GetToken();
-    ParseExpression();
-    EmtAsgn();
-    return;
   }
   operation = 0;
   if (curTok == Plus)
@@ -856,6 +861,10 @@ static void ParseExpression()
   {
     operation = Tge;
   }
+  if (curTok == EqualsSign)
+  {
+    operation = Assign;
+  }
   if (operation)
   {
     GetToken();
@@ -877,55 +886,10 @@ static void ParseBlock()
   GetToken();
   while (curTok != RightBrace)
   {
-    if (curTok == Variable)
+    if ((curTok == Function) | (curTok == Variable) | (curTok == CharacterVariable))
     {
-      findPointer = namesPointer;
-      EmtPushFind();
-      GetToken();
-      if (curTok == LeftBracket)
-      {
-        EmtRead();
-        GetToken();
-        ParseExpression();
-        if (curTok != RightBracket)
-        {
-          Fail();
-        }
-        EmtAddIdx();
-        GetToken();
-      }
-      if (curTok != EqualsSign)
-      {
-        Fail();
-      }
-      GetToken();
       ParseExpression();
-      if (curTok != Semicolon)
-      {
-        Fail();
-      }
-      EmtAsgn();
-      GetToken();
-    }
-    if (curTok == Function)
-    {
-      funIdx = i;
-      GetToken();
-      if (curTok != LeftParenthesis)
-      {
-        Fail();
-      }
-      GetToken();
-      if (curTok != RightParenthesis)
-      {
-        ParseExpression();
-      }
-      if (curTok != RightParenthesis)
-      {
-        Fail();
-      }
-      EmtProcCall();
-      GetToken();
+      text = popEax; PutTxt();
       if (curTok != Semicolon)
       {
         Fail();
@@ -1049,17 +1013,20 @@ static void ParseDefinition()
     GetToken();
     return;
   }
-  if ((curTok == Static) | (curTok == Void) | (curTok == Int))
+  if ((curTok == Static) | (curTok == Void) | (curTok == Int) | (curTok == Char))
   {
+    value = curTok;
     GetToken();
-    if ((curTok == Void) | (curTok == Int))
+    if ((curTok == Void) | (curTok == Int) | (curTok == Char))
     {
+      value = curTok;
       GetToken();
       if (curTok == Asterisk)
       {
         GetToken();
       }
     }
+    PushValue();
     if (curTok != Name)
     {
       Fail();
@@ -1082,7 +1049,14 @@ static void ParseDefinition()
       EmtRet();
       return;
     }
-    items[symbolPointer + 2] = Variable;
+    if (TopValue() == Char)
+    {
+      items[symbolPointer + 2] = CharacterVariable;
+    }
+    if (TopValue() != Char)
+    {
+      items[symbolPointer + 2] = Variable;
+    }
     EmtDatSeg();
     EmtDcl();
     curVal = 1; // default value
@@ -1122,6 +1096,7 @@ static void ParseDefinition()
     }
     putchar(10);
     GetToken();
+    PopValue();
   }
 }
 
@@ -1138,4 +1113,3 @@ int main()
   Init();
   ParseCpl();
 }
-
