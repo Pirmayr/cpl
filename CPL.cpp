@@ -114,7 +114,6 @@ static int i;
 static int infos[infosSize]; // various infos (e.g. symbols)
 static int j;
 static int limit;
-static int minusOne;
 static int stringPointer; // index of the string in "infos" to be put out in "PutText"
 static int namesPointer; // index of the top-most name in "infos"
 static int nextLabel;
@@ -143,6 +142,11 @@ static int TopValue()
 
 static void PutNumber()
 {
+  if (number < 0)
+  {
+    putchar(Minus);
+    number = -number;
+  }
   item = number % 10; PushValue();
   number = number / 10;
   if (number)
@@ -412,7 +416,7 @@ static int FindSymbol()
       kind = infos[findPointer + limit]; value = infos[findPointer + limit + 1];
       return 1;
     }
-    if (findPointer == minusOne)
+    if (findPointer == -1)
     {
       return 0;
     }
@@ -586,13 +590,11 @@ static void GetToken()
 
 static void Init()
 {
-  minusOne = -1;
-
   EmitHeader();
 
   nextLabel = 0;
   itemsPointer = infosSize;
-  namesPointer = minusOne;
+  namesPointer = -1;
 
   character = 'c'; AddCurChr();
   character = 'o'; AddCurChr();
