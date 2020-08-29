@@ -14,6 +14,7 @@ const int Constant = 1;
 const int DataSegment = 1;
 const int Delete = 127;
 const int Div = 13;
+const int Else = 26;
 const int Eof = 0;
 const int Equal = 2;
 const int EqualsSign = 61;
@@ -76,7 +77,8 @@ const int Zero = 48;
 
 static char addCharacterIndex[] = "call o10\n";
 static char addIntegerIndex[] = "call adi\n";
-static char beginLabel[] = "b#:\n";
+static char beginLabel[] = "begin#:\n";
+static char elseLabel[] = "else#:\n";
 static char callOperation[] = "call o#\n";
 static char callSubroutine[] = "call %\npush eax\n";
 static char characterArrayAddress[] = " \\$+4\ndb";
@@ -85,13 +87,14 @@ static char curTxtChr;
 static char dataSegment[] = "section '.data' data readable writeable\n";
 static char declaration[] = "% dd";
 static char duplicates[] = " # dup(?)";
-static char endLabel[] = "e#:\n";
+static char endLabel[] = "end#:\n";
 static char fail[] = "fail\n";
 static char function[] = "%:\n";
 static char header[] = "format PE Console\nentry start\nmacro opr k,o\n{\npop ecx\npop ebx\npop eax\nif o eq\nk eax,ebx\npush eax\nelse\nxor edx,edx\nk ebx\npush o\nend if\njmp ecx\n}\nmacro tst k\n{\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\nk @f\ndec ecx\n@@: push ecx\njmp edx\n}\nsection '.idata' import data readable writeable\ndd 0,0,0\ndd rva kernelName\ndd rva kernelTable\ndd 0,0,0,0,0\nkernelTable:\nExitProcess dd rva exitProcess\nReadFile dd rva readFile\nWriteFile dd rva writeFile\nGetStdHandle dd rva getStdHandle\ndd 0\nkernelName:db 'KERNEL32.DLL',0\nexitProcess:db 0,0,'ExitProcess',0\nreadFile:db 0,0,'ReadFile',0\nwriteFile:db 0,0,'WriteFile',0\ngetStdHandle:db 0,0,'GetStdHandle',0\nsection '.data' data readable writeable\nih dd ?\noh dd ?\nio db ?\nbc dd ?\nsection '.text' code readable executable\nexit:\ncall [ExitProcess]\ngetchar:\npush ebp\nmov ebp, esp\nmov [io], 0\npush 0\npush bc\npush 1\npush io\npush [ih]\ncall [ReadFile]\nmov eax, 0\nmov al, [io]\npop ebp\nret 0 \nputchar:\npush ebp\nmov ebp, esp\nmov eax, [ebp + 8]\nmov [io], al\npush 0\npush bc\npush 1\npush io\npush [oh]\ncall [WriteFile]\npop ebp\nret 4 \no10:opr add\no11:opr sub\no12:opr mul,eax\no13:opr div,eax\no14:opr div,edx\no15:opr and\no16:opr or\no17:tst jne\no18:tst je\no19:tst jge\no20:tst jg\no21:tst jle\no22:tst jl\no23:\npop ecx\npop ebx\npop eax\nmov [eax],ebx\npush ebx\njmp ecx\nadi:\npop edx\npop ebx\npop eax\nlea eax,[eax+4*ebx]\npush eax\njmp edx\nlgn:\npop edx\npop eax\ntest eax,eax\nsetz al\nmovzx eax,al\npush eax\njmp edx\nstart:\npush 0FFFFFFF6h\ncall [GetStdHandle]\nmov [ih], eax \npush 0FFFFFFF5h\ncall [GetStdHandle]\nmov [oh], eax \ncall main\npush 0\ncall [ExitProcess]\n";
 static char integerArrayAddress[] = " \\$+4\ndd";
-static char jumpToBegin[] = "jmp b#\n";
-static char jumpToEnd[] = "pop eax\ncmp eax,0\nje e#\n";
+static char jumpToBegin[] = "jmp begin#\n";
+static char jumpToEnd[] = "jmp end#\n";
+static char jumpToElse[] = "pop eax\ncmp eax,0\nje else#\n";
 static char logicalNegation[] = "call lgn\n";
 static char numericalNegation[] = "neg dword[esp]\n";
 static char popEax[] = "pop eax\n";
@@ -107,7 +110,6 @@ static int kind; // symbol kind set in "DefineSymbol" or "FindSymbol"
 static int token; // the token currently read by the scanner
 static int value; // numerical value of the token currently read by the scanner
 static int findPointer; // index of the find in "infos" by calling "FindSymbol"
-static int hasInit;
 static int i;
 static int infos[infosSize]; // various infos (e.g. symbols)
 static int j;
@@ -314,9 +316,19 @@ static void EmitJumpToBegin()
   text = jumpToBegin; number = TopValue(); PutTxt();
 }
 
+static void EmitElse()
+{
+  text = elseLabel; number = TopValue(); PutTxt();
+}
+
 static void EmitEnd()
 {
   text = endLabel; number = TopValue(); PutTxt();
+}
+
+static void EmitJumpToElse()
+{
+  text = jumpToElse; number = TopValue(); PutTxt();
 }
 
 static void EmitJumpToEnd()
@@ -617,6 +629,14 @@ static void Init()
   value = If;
   DefineSymbol();
 
+  character = 'e'; AddCurChr();
+  character = 'l'; AddCurChr();
+  character = 's'; AddCurChr();
+  character = 'e'; AddCurChr();
+  kind = Keyword;
+  value = Else;
+  DefineSymbol();
+
   character = 'w'; AddCurChr();
   character = 'h'; AddCurChr();
   character = 'i'; AddCurChr();
@@ -750,7 +770,6 @@ static void ParseExpression()
   if ((token == Variable) | (token == CharacterVariable))
   {
     item = token; PushValue();
-    // findPointer = namesPointer;
     EmitPushName();
     GetToken();
     if (token == LeftBracket)
@@ -762,13 +781,13 @@ static void ParseExpression()
       {
         Fail();
       }
-      if (TopValue() != CharacterVariable)
-      {
-        EmitAddIntegerIndex();
-      }
       if (TopValue() == CharacterVariable)
       {
         EmitAddCharacterIndex();
+      }
+      else
+      {
+        EmitAddIntegerIndex();
       }
       GetToken();
     }
@@ -927,10 +946,21 @@ static void ParseBlock()
       {
         Fail();
       }
-      EmitJumpToEnd();
+      EmitJumpToElse();
       GetToken();
       ParseBlock();
-      EmitEnd();
+      if (token == Else)
+      {
+        GetToken();
+        EmitJumpToEnd();
+        EmitElse();
+        ParseBlock();
+        EmitEnd();
+      }
+      else
+      {
+        EmitElse();
+      }
       PopValue();
     }
     if (token == While)
@@ -948,11 +978,11 @@ static void ParseBlock()
       {
         Fail();
       }
-      EmitJumpToEnd();
+      EmitJumpToElse();
       GetToken();
       ParseBlock();
       EmitJumpToBegin();
-      EmitEnd();
+      EmitElse();
       PopValue();
     }
   }
@@ -1015,20 +1045,18 @@ static void ParseDefinition()
     GetToken();
     return;
   }
-  if ((token == Static) | (token == Void) | (token == Int) | (token == Char))
+  if (token == Static)
   {
-    item = token;
     GetToken();
-    if ((token == Void) | (token == Int) | (token == Char))
+  }
+  if ((token == Void) | (token == Int) | (token == Char))
+  {
+    item = token; PushValue();
+    GetToken();
+    if (token == Asterisk)
     {
-      item = token;
       GetToken();
-      if (token == Asterisk)
-      {
-        GetToken();
-      }
     }
-    PushValue();
     if (token != Name)
     {
       Fail();
@@ -1058,7 +1086,7 @@ static void ParseDefinition()
     {
       infos[namesPointer - 2] = CharacterVariable;
     }
-    if (TopValue() != Char)
+    else
     {
       infos[namesPointer - 2] = Variable;
     }
@@ -1076,7 +1104,7 @@ static void ParseDefinition()
       {
         EmitCharacterArrayAddress();
       }
-      if (TopValue() != Char)
+      else
       {
         EmitIntegerArrayAddress();
       }
@@ -1090,10 +1118,8 @@ static void ParseDefinition()
         GetToken();
       }
     }
-    hasInit = 0;
     if (token == EqualsSign)
     {
-      hasInit = 1;
       GetToken();
       if (token != String)
       {
@@ -1102,16 +1128,16 @@ static void ParseDefinition()
       EmitCodes();
       GetToken();
     }
+    else
+    {
+      EmitDuplicates(); 
+    }
     if (token != Semicolon)
     {
       Fail();
     }
-    if (hasInit == 0)
-    {
-      EmitDuplicates(); 
-    }
-    putchar(LineFeed);
     GetToken();
+    putchar(LineFeed);
     PopValue();
   }
 }
