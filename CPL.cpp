@@ -5,11 +5,13 @@ const int Add = 10;
 const int Ampersand = 38;
 const int And = 15;
 const int Apostrophe = 39;
+const int Assign = 23;
 const int Asterisk = 42;
 const int Backslash = 92;
 const int Char = 25;
 const int CharacterVariable = 24;
 const int Constant = 1;
+const int DataSegment = 1;
 const int Delete = 127;
 const int Div = 13;
 const int Eof = 0;
@@ -22,8 +24,8 @@ const int GreaterOrEqual = 4;
 const int Hash = 35;
 const int If = 5;
 const int Include = 6;
-const int ItemsSize = 10000;
 const int Int = 7;
+const int infosSize = 10000;
 const int Keyword = 20;
 const int LeftBrace = 123;
 const int LeftBracket = 91;
@@ -39,6 +41,7 @@ const int Mod = 14;
 const int Mul = 12;
 const int Name = 9;
 const int Nine = 57;
+const int NoSegment = 0;
 const int NotEqual = 22;
 const int Number = 11;
 const int Or = 16;
@@ -57,6 +60,7 @@ const int Static = 13;
 const int String = 14;
 const int Sub = 11;
 const int Teq = 17;
+const int TextSegment = 2;
 const int Tge = 22;
 const int Tgr = 21;
 const int Tle = 20;
@@ -69,93 +73,91 @@ const int Variable = 15;
 const int Void = 16;
 const int While = 17;
 const int Zero = 48;
-const int Assign = 23;
 
-static char addIndex[] = "call adi\n";
-static char arrayAddress[] = " \\$+4\ndb";
+static char addCharacterIndex[] = "call o10\n";
+static char addIntegerIndex[] = "call adi\n";
 static char beginLabel[] = "b#:\n";
 static char callOperation[] = "call o#\n";
-static char callSubroutine[] = "call %\n";
+static char callSubroutine[] = "call %\npush eax\n";
+static char characterArrayAddress[] = " \\$+4\ndb";
 static char codes[] = " &";
 static char curTxtChr;
-static char addCharacterIndex[] = "call o10\n";
-static char dataSegment[] = "section '.data' data readable writeable";
+static char dataSegment[] = "section '.data' data readable writeable\n";
 static char declaration[] = "% dd";
-static char duplicate[] = " # dup(?)\n";
+static char duplicates[] = " # dup(?)";
 static char endLabel[] = "e#:\n";
+static char fail[] = "fail\n";
 static char function[] = "%:\n";
 static char header[] = "format PE Console\nentry start\nmacro opr k,o\n{\npop ecx\npop ebx\npop eax\nif o eq\nk eax,ebx\npush eax\nelse\nxor edx,edx\nk ebx\npush o\nend if\njmp ecx\n}\nmacro tst k\n{\npop edx\nxor ecx,ecx\npop ebx\npop eax\ncmp eax,ebx\nk @f\ndec ecx\n@@: push ecx\njmp edx\n}\nsection '.idata' import data readable writeable\ndd 0,0,0\ndd rva kernelName\ndd rva kernelTable\ndd 0,0,0,0,0\nkernelTable:\nExitProcess dd rva exitProcess\nReadFile dd rva readFile\nWriteFile dd rva writeFile\nGetStdHandle dd rva getStdHandle\ndd 0\nkernelName:db 'KERNEL32.DLL',0\nexitProcess:db 0,0,'ExitProcess',0\nreadFile:db 0,0,'ReadFile',0\nwriteFile:db 0,0,'WriteFile',0\ngetStdHandle:db 0,0,'GetStdHandle',0\nsection '.data' data readable writeable\nih dd ?\noh dd ?\nio db ?\nbc dd ?\nsection '.text' code readable executable\nexit:\ncall [ExitProcess]\ngetchar:\npush ebp\nmov ebp, esp\nmov [io], 0\npush 0\npush bc\npush 1\npush io\npush [ih]\ncall [ReadFile]\nmov eax, 0\nmov al, [io]\npop ebp\nret 0 \nputchar:\npush ebp\nmov ebp, esp\nmov eax, [ebp + 8]\nmov [io], al\npush 0\npush bc\npush 1\npush io\npush [oh]\ncall [WriteFile]\npop ebp\nret 4 \no10:opr add\no11:opr sub\no12:opr mul,eax\no13:opr div,eax\no14:opr div,edx\no15:opr and\no16:opr or\no17:tst jne\no18:tst je\no19:tst jge\no20:tst jg\no21:tst jle\no22:tst jl\no23:\npop ecx\npop ebx\npop eax\nmov [eax],ebx\npush ebx\njmp ecx\nadi:\npop edx\npop ebx\npop eax\nlea eax,[eax+4*ebx]\npush eax\njmp edx\nlgn:\npop edx\npop eax\ntest eax,eax\nsetz al\nmovzx eax,al\npush eax\njmp edx\nstart:\npush 0FFFFFFF6h\ncall [GetStdHandle]\nmov [ih], eax \npush 0FFFFFFF5h\ncall [GetStdHandle]\nmov [oh], eax \ncall main\npush 0\ncall [ExitProcess]\n";
+static char integerArrayAddress[] = " \\$+4\ndd";
 static char jumpToBegin[] = "jmp b#\n";
 static char jumpToEnd[] = "pop eax\ncmp eax,0\nje e#\n";
 static char logicalNegation[] = "call lgn\n";
 static char numericalNegation[] = "neg dword[esp]\n";
 static char popEax[] = "pop eax\n";
-static char pushEax[] = "push eax\n";
 static char pushName[] = "push %\n";
 static char pushValue[] = "push #\n";
 static char read[] = "pop eax\npush dword[eax]\n";
 static char returnFromSubroutine[] = "ret\n";
-static char fail[] = "fail\n";
-static char textSegment[] = "section '.text' code readable executable";
+static char textSegment[] = "section '.text' code readable executable\n";
 static char* text; // text to be put out.
-static int curChr;
-static int curSym;
-static int curTok;
-static int curVal;
-static int findPointer; // index of the find in "items" by calling "FdSym"
-static int funIdx;
+static int activeSegment;
+static int character; // the current character processed in the scanner
+static int kind; // symbol kind set in "DefineSymbol" or "FindSymbol"
+static int token; // the token currently read by the scanner
+static int value; // numerical value of the token currently read by the scanner
+static int findPointer; // index of the find in "infos" by calling "FindSymbol"
 static int hasInit;
 static int i;
-static int items[ItemsSize]; // various information (e.g. names) necessary during compilation
+static int infos[infosSize]; // various infos (e.g. symbols)
 static int j;
 static int limit;
 static int minusOne;
-static int nameIndex;
-static int namesPointer; // index of the top-most name in "items"
+static int stringPointer; // index of the string in "infos" to be put out in "PutText"
+static int namesPointer; // index of the top-most name in "infos"
 static int nextLabel;
 static int number;
-static int nxtChr;
+static int nextCharacter; // the next character to be processed in the scanner
 static int operation;
-static int symbolPointer; // index of the newly defined symbol in "items".
 static int textIndex;
-static int value;
-static int valuesPointer; // index of the top-most value in "values"
+static int item;
+static int itemsPointer; // index of the top-most item in "infos"
 
 static void PushValue()
 {
-  valuesPointer = valuesPointer - 1;
-  items[valuesPointer] = value;
+  itemsPointer = itemsPointer - 1;
+  infos[itemsPointer] = item;
 }
 
 static void PopValue()
 {
-  valuesPointer = valuesPointer + 1;
+  itemsPointer = itemsPointer + 1;
 }
 
 static int TopValue()
 {
-  return items[valuesPointer];
+  return infos[itemsPointer];
 }
 
 static void PutNumber()
 {
-  value = number % 10; PushValue();
+  item = number % 10; PushValue();
   number = number / 10;
   if (number)
   {
     PutNumber();
   }
-  value = TopValue();
-  putchar(value + 48); PopValue();
+  item = TopValue();
+  putchar(item + 48); PopValue();
 }
 
 static void PutName()
 {
   i = 0;
-  limit = items[nameIndex + 1];
+  limit = infos[stringPointer + 1];
   while (i < limit)
   {
-    putchar(items[nameIndex + i + 2]);
+    putchar(infos[stringPointer + i + 2]);
     i = i + 1;
   }
 }
@@ -163,10 +165,10 @@ static void PutName()
 static void PutNumbers()
 {
   i = 0;
-  limit = items[nameIndex + 1];
+  limit = infos[stringPointer + 1];
   while (i < limit)
   {
-    number = items[nameIndex + i + 2]; PutNumber();
+    number = infos[stringPointer + i + 2]; PutNumber();
     putchar(',');
     i = i + 1;
   }
@@ -204,7 +206,6 @@ static void ExpandPlaceholders()
   putchar(curTxtChr);
 }
 
-// Output text to stdout. The text may contain placeholders.       
 void PutTxt()
 {
   textIndex = 0;
@@ -220,7 +221,6 @@ void PutTxt()
   }
 }
 
-// exit program with failure-code 1
 static void Fail()
 {
   text = fail; PutTxt();
@@ -229,167 +229,167 @@ static void Fail()
 
 static void PushLabel()
 {
-  value = nextLabel;
+  item = nextLabel;
   PushValue();
   nextLabel = nextLabel + 1;
 }
 
 static void EmtDcl()
 {
-  text = declaration; nameIndex = findPointer; PutTxt();
+  text = declaration; stringPointer = findPointer; PutTxt();
 }
 
-static void EmtDup()
+static void EmitDuplicates()
 {
-  text = duplicate; number = curVal; PutTxt();
+  text = duplicates; number = value; PutTxt();
 }
 
-static void EmtFun()
+static void EmitFunction()
 {
-  text = function; nameIndex = findPointer; PutTxt();
+  text = function; stringPointer = findPointer; PutTxt();
 }
 
-static void EmtDatSeg()
+static void EmitDataSegment()
 {
-  text = dataSegment; PutTxt(); putchar(10);
+  text = dataSegment; PutTxt();
 }
 
-static void EmtTxtSeg()
+static void EmitTextSegment()
 {
-  text = textSegment; PutTxt(); putchar(10);
+  text = textSegment; PutTxt();
 }
 
-static void EmtHdr()
+static void EmitHeader()
 {
   text = header; PutTxt();
 }
 
-static void EmtPushFind()
+static void EmitPushName()
 {
-  text = pushName; nameIndex = findPointer; PutTxt();
+  text = pushName; stringPointer = namesPointer; PutTxt();
 }
 
-static void EmtPushVal()
+static void EmitPushValue()
 {
-  text = pushValue; number = curVal; PutTxt();
+  text = pushValue; number = value; PutTxt();
 }
 
-static void EmtRet()
+static void EmitReturn()
 {
   text = returnFromSubroutine; PutTxt();
 }
 
-static void EmtProcCall()
+static void EmitFunctionCall()
 {
-  text = callSubroutine; nameIndex = funIdx; PutTxt();
+  text = callSubroutine; PutTxt();
 }
 
-static void EmtFunCall()
-{
-  EmtProcCall();
-  text = pushEax; PutTxt();
-}
-
-static void EmtNot()
+static void EmitLogicalNegation()
 {
   text = logicalNegation; PutTxt();
 }
 
-static void EmtNeg()
+static void EmitNumericalNegation()
 {
   text = numericalNegation; PutTxt();
 }
 
-static void EmtAddCharacterIdx()
+static void EmitAddCharacterIndex()
 {
   text = addCharacterIndex; PutTxt();
 }
 
-static void EmtAddIdx()
+static void EmitAddIntegerIndex()
 {
-  text = addIndex; PutTxt();
+  text = addIntegerIndex; PutTxt();
 }
 
-static void EmtBegin()
+static void EmitBegin()
 {
   text = beginLabel; number = TopValue(); PutTxt();
 }
 
-static void EmtJmpBegin()
+static void EmitJumpToBegin()
 {
   text = jumpToBegin; number = TopValue(); PutTxt();
 }
 
-static void EmtEnd()
+static void EmitEnd()
 {
   text = endLabel; number = TopValue(); PutTxt();
 }
 
-static void EmtJmpEnd()
+static void EmitJumpToEnd()
 {
   text = jumpToEnd; number = TopValue(); PutTxt();
 }
 
-static void EmtRead()
+static void EmitRead()
 {
   text = read; PutTxt();
 }
 
-static void EmtStrInt()
+static void EmitCodes()
 {
-  text = codes; nameIndex = namesPointer; PutTxt(); 
+  text = codes; stringPointer = namesPointer; PutTxt(); 
 }
 
-static void EmtArrAddr()
+static void EmitIntegerArrayAddress()
 {
-  text = arrayAddress; PutTxt();
+  text = integerArrayAddress; PutTxt();
+}
+
+static void EmitCharacterArrayAddress()
+{
+  text = characterArrayAddress; PutTxt();
 }
 
 static void AddCurChr()
 {
-  items[namesPointer + 1] = items[namesPointer + 1] + 1;
-  items[namesPointer + items[namesPointer + 1] + 1] = curChr;
+  infos[namesPointer + 1] = infos[namesPointer + 1] + 1;
+  infos[namesPointer + infos[namesPointer + 1] + 1] = character;
 }
 
 static int IsCtrl()
 {
-  return (curChr < Space) | (Delete <= curChr);
+  return (character < Space) | (Delete <= character);
 }
 
 static int IsWhitespace()
 {
-  return IsCtrl() | (curChr == ' ');
+  return IsCtrl() | (character == ' ');
 }
 
 static int IsDigit()
 {
-  return (Zero <= curChr) & (curChr <= Nine);
+  return (Zero <= character) & (character <= Nine);
 }
 
 static int IsLetter()
 {
-  return ((LowerA <= curChr) & (curChr <= LowerZ)) | ((UpperA <= curChr) & (curChr <= UpperZ));
+  return ((LowerA <= character) & (character <= LowerZ)) | ((UpperA <= character) & (character <= UpperZ));
 }
 
-static void SetSym()
+static void DefineSymbol()
 {
-  symbolPointer = namesPointer + items[namesPointer + 1];
-  items[symbolPointer + 2] = curSym;
-  items[symbolPointer + 3] = curVal;
-  items[symbolPointer + 4] = namesPointer;
-  namesPointer = symbolPointer + 4;
+  findPointer = namesPointer;
+  namesPointer = namesPointer + infos[namesPointer + 1];
+  infos[namesPointer + 2] = kind;
+  infos[namesPointer + 3] = value;
+  infos[namesPointer + 4] = findPointer;
+  namesPointer = namesPointer + 4;
 }
 
-static int FndSym()
+static int FindSymbol()
 {
-  i = items[namesPointer];
+  findPointer = infos[namesPointer];
   while (1)
   {
-    limit = items[i + 1] + 2;
+    limit = infos[findPointer + 1] + 2;
     j = 1;
     while (j < limit)
     {
-      if (items[i + j] != items[namesPointer + j])
+      if (infos[findPointer + j] != infos[namesPointer + j])
       {
         j = limit;
       }
@@ -397,33 +397,33 @@ static int FndSym()
     }
     if (j == limit)
     {
-      curSym = items[i + limit]; curVal = items[i + limit + 1];
+      kind = infos[findPointer + limit]; value = infos[findPointer + limit + 1];
       return 1;
     }
-    if (i == minusOne)
+    if (findPointer == minusOne)
     {
       return 0;
     }
-    i = items[i];
+    findPointer = infos[findPointer];
   }
 }
 
 static void GetNxtChr()
 {
-  curChr = nxtChr;
-  nxtChr = getchar();
-  if (nxtChr < 0)
+  character = nextCharacter;
+  nextCharacter = getchar();
+  if (nextCharacter < 0)
   {
-    nxtChr = 0;
+    nextCharacter = 0;
   }
 }
 
 static void GetChr()
 {
   GetNxtChr();
-  while ((curChr == '/') & (nxtChr == '/'))
+  while ((character == '/') & (nextCharacter == '/'))
   {
-    while ((curChr != Eof) & (curChr != 10))
+    while ((character != Eof) & (character != 10))
     {
       GetNxtChr();
     }
@@ -433,140 +433,140 @@ static void GetChr()
 
 static void GetToken()
 {
-  items[namesPointer + 1] = 0;
-  while ((curChr != Eof) & IsWhitespace())
+  infos[namesPointer + 1] = 0;
+  while ((character != Eof) & IsWhitespace())
   {
     GetChr();
   }
-  curTok = curChr;
-  if (curChr == EqualsSign)
+  token = character;
+  if (character == EqualsSign)
   {
     GetChr();
-    if (curChr == EqualsSign)
+    if (character == EqualsSign)
     {
       GetChr();
-      curTok = Equal;
+      token = Equal;
       return;
     }
     return;
   }
-  if (curChr == ExclamationMark)
+  if (character == ExclamationMark)
   {
     GetChr();
-    if (curChr == EqualsSign)
+    if (character == EqualsSign)
     {
       GetChr();
-      curTok = NotEqual;
+      token = NotEqual;
       return;
     }
     return;
   }
-  if (curChr == Less)
+  if (character == Less)
   {
     GetChr();
-    if (curChr == EqualsSign)
+    if (character == EqualsSign)
     {
       GetChr();
-      curTok = LessOrEqual;
+      token = LessOrEqual;
       return;
     }
     return;
   }
-  if (curChr == Greater)
+  if (character == Greater)
   {
     GetChr();
-    if (curChr == EqualsSign)
+    if (character == EqualsSign)
     {
       GetChr();
-      curTok = GreaterOrEqual;
+      token = GreaterOrEqual;
       return;
     }
     return;
   }
-  if (curChr == Apostrophe)
+  if (character == Apostrophe)
   {
     GetChr();
-    curVal = curChr;
+    value = character;
     GetChr();
-    if (curChr == Apostrophe)
+    if (character == Apostrophe)
     {
       GetChr();
-      curTok = Number;
+      token = Number;
       return;
     }
   }
-  if (curChr == Quote)
+  if (character == Quote)
   {
     GetChr();
-    while ((curChr != Eof) & (curChr != Quote))
+    while ((character != Eof) & (character != Quote))
     {
-      if (curChr == Backslash)
+      if (character == Backslash)
       {
         GetChr();
-        if (curChr == LowerN)
+        if (character == LowerN)
         {
-          curChr = LineFeed;
+          character = LineFeed;
         }
       }
       AddCurChr();
       GetChr();
     }
-    if (curChr == Quote)
+    if (character == Quote)
     {
       GetChr();
-      curTok = String;
+      token = String;
       return;
     }
   }
   if (IsLetter())
   {
-    while ((curChr != Eof) & IsLetter())
+    while ((character != Eof) & IsLetter())
     {
       AddCurChr();
       GetChr();
     }
-    if (FndSym())
+    if (FindSymbol())
     {
-      if (curSym == Keyword)
+      if (kind == Keyword)
       {
-        curTok = curVal;
+        token = value;
         return;
       }
-      if (curSym == Constant)
+      if (kind == Constant)
       {
-        curTok = Number;
+        token = Number;
         return;
       }
-      if (curSym == Function)
+      if (kind == Function)
       {
-        curTok = Function;
+        token = Function;
         return;
       }
-      if (curSym == Variable)
+      if (kind == Variable)
       {
-        curTok = Variable;
+        token = Variable;
         return;
       }
-      if (curSym == CharacterVariable)
+      if (kind == CharacterVariable)
       {
-        curTok = CharacterVariable;
+        token = CharacterVariable;
         return;
       }
       return;
     }
-    curTok = Name;
+    token = Name;
     return;
   }
   if (IsDigit())
   {
-    curVal = 0;
-    while ((curChr != Eof) & IsDigit())
+    value = 0;
+    while ((character != Eof) & IsDigit())
     {
-      curVal = (curVal * 10) + (curChr - Zero);
+      value = (value * 10) + (character - Zero);
       AddCurChr();
       GetChr();
     }
-    curTok = Number;
+    token = Number;
     return;
   }
   GetChr();
@@ -576,151 +576,152 @@ static void Init()
 {
   minusOne = -1;
 
-  EmtHdr();
+  EmitHeader();
 
   nextLabel = 0;
-  valuesPointer = ItemsSize;
+  itemsPointer = infosSize;
   namesPointer = minusOne;
 
-  curChr = 'c'; AddCurChr();
-  curChr = 'o'; AddCurChr();
-  curChr = 'n'; AddCurChr();
-  curChr = 's'; AddCurChr();
-  curChr = 't'; AddCurChr();
-  curSym = Keyword;
-  curVal = Constant;
-  SetSym();
+  character = 'c'; AddCurChr();
+  character = 'o'; AddCurChr();
+  character = 'n'; AddCurChr();
+  character = 's'; AddCurChr();
+  character = 't'; AddCurChr();
+  kind = Keyword;
+  value = Constant;
+  DefineSymbol();
 
-  curChr = 's'; AddCurChr();
-  curChr = 't'; AddCurChr();
-  curChr = 'a'; AddCurChr();
-  curChr = 't'; AddCurChr();
-  curChr = 'i'; AddCurChr();
-  curChr = 'c'; AddCurChr();
-  curSym = Keyword;
-  curVal = Static;
-  SetSym();
+  character = 's'; AddCurChr();
+  character = 't'; AddCurChr();
+  character = 'a'; AddCurChr();
+  character = 't'; AddCurChr();
+  character = 'i'; AddCurChr();
+  character = 'c'; AddCurChr();
+  kind = Keyword;
+  value = Static;
+  DefineSymbol();
 
-  curChr = 'r'; AddCurChr();
-  curChr = 'e'; AddCurChr();
-  curChr = 't'; AddCurChr();
-  curChr = 'u'; AddCurChr();
-  curChr = 'r'; AddCurChr();
-  curChr = 'n'; AddCurChr();
-  curSym = Keyword;
-  curVal = Return;
-  SetSym();
+  character = 'r'; AddCurChr();
+  character = 'e'; AddCurChr();
+  character = 't'; AddCurChr();
+  character = 'u'; AddCurChr();
+  character = 'r'; AddCurChr();
+  character = 'n'; AddCurChr();
+  kind = Keyword;
+  value = Return;
+  DefineSymbol();
 
-  curChr = 'i'; AddCurChr();
-  curChr = 'f'; AddCurChr();
-  curSym = Keyword;
-  curVal = If;
-  SetSym();
+  character = 'i'; AddCurChr();
+  character = 'f'; AddCurChr();
+  kind = Keyword;
+  value = If;
+  DefineSymbol();
 
-  curChr = 'w'; AddCurChr();
-  curChr = 'h'; AddCurChr();
-  curChr = 'i'; AddCurChr();
-  curChr = 'l'; AddCurChr();
-  curChr = 'e'; AddCurChr();
-  curSym = Keyword;
-  curVal = While;
-  SetSym();
+  character = 'w'; AddCurChr();
+  character = 'h'; AddCurChr();
+  character = 'i'; AddCurChr();
+  character = 'l'; AddCurChr();
+  character = 'e'; AddCurChr();
+  kind = Keyword;
+  value = While;
+  DefineSymbol();
 
-  curChr = 'i'; AddCurChr();
-  curChr = 'n'; AddCurChr();
-  curChr = 'c'; AddCurChr();
-  curChr = 'l'; AddCurChr();
-  curChr = 'u'; AddCurChr();
-  curChr = 'd'; AddCurChr();
-  curChr = 'e'; AddCurChr();
-  curSym = Keyword;
-  curVal = Include;
-  SetSym();
+  character = 'i'; AddCurChr();
+  character = 'n'; AddCurChr();
+  character = 'c'; AddCurChr();
+  character = 'l'; AddCurChr();
+  character = 'u'; AddCurChr();
+  character = 'd'; AddCurChr();
+  character = 'e'; AddCurChr();
+  kind = Keyword;
+  value = Include;
+  DefineSymbol();
 
-  curChr = 'i'; AddCurChr();
-  curChr = 'n'; AddCurChr();
-  curChr = 't'; AddCurChr();
-  curSym = Keyword;
-  curVal = Int;
-  SetSym();
+  character = 'i'; AddCurChr();
+  character = 'n'; AddCurChr();
+  character = 't'; AddCurChr();
+  kind = Keyword;
+  value = Int;
+  DefineSymbol();
 
-  curChr = 'c'; AddCurChr();
-  curChr = 'h'; AddCurChr();
-  curChr = 'a'; AddCurChr();
-  curChr = 'r'; AddCurChr();
-  curSym = Keyword;
-  curVal = Char;
-  SetSym();
+  character = 'c'; AddCurChr();
+  character = 'h'; AddCurChr();
+  character = 'a'; AddCurChr();
+  character = 'r'; AddCurChr();
+  kind = Keyword;
+  value = Char;
+  DefineSymbol();
 
-  curChr = 'v'; AddCurChr();
-  curChr = 'o'; AddCurChr();
-  curChr = 'i'; AddCurChr();
-  curChr = 'd'; AddCurChr();
-  curSym = Keyword;
-  curVal = Void;
-  SetSym();
+  character = 'v'; AddCurChr();
+  character = 'o'; AddCurChr();
+  character = 'i'; AddCurChr();
+  character = 'd'; AddCurChr();
+  kind = Keyword;
+  value = Void;
+  DefineSymbol();
 
-  curChr = 'a'; AddCurChr();
-  curChr = 'b'; AddCurChr();
-  curChr = 'o'; AddCurChr();
-  curChr = 'r'; AddCurChr();
-  curChr = 't'; AddCurChr();
-  curSym = Function;
-  curVal = Void;
-  SetSym();
+  character = 'a'; AddCurChr();
+  character = 'b'; AddCurChr();
+  character = 'o'; AddCurChr();
+  character = 'r'; AddCurChr();
+  character = 't'; AddCurChr();
+  kind = Function;
+  value = Void;
+  DefineSymbol();
 
-  curChr = 'g'; AddCurChr();
-  curChr = 'e'; AddCurChr();
-  curChr = 't'; AddCurChr();
-  curChr = 'c'; AddCurChr();
-  curChr = 'h'; AddCurChr();
-  curChr = 'a'; AddCurChr();
-  curChr = 'r'; AddCurChr();
-  curSym = Function;
-  curVal = Int;
-  SetSym();
+  character = 'g'; AddCurChr();
+  character = 'e'; AddCurChr();
+  character = 't'; AddCurChr();
+  character = 'c'; AddCurChr();
+  character = 'h'; AddCurChr();
+  character = 'a'; AddCurChr();
+  character = 'r'; AddCurChr();
+  kind = Function;
+  value = Int;
+  DefineSymbol();
 
-  curChr = 'p'; AddCurChr();
-  curChr = 'u'; AddCurChr();
-  curChr = 't'; AddCurChr();
-  curChr = 'c'; AddCurChr();
-  curChr = 'h'; AddCurChr();
-  curChr = 'a'; AddCurChr();
-  curChr = 'r'; AddCurChr();
-  curSym = Function;
-  curVal = Void;
-  SetSym();
+  character = 'p'; AddCurChr();
+  character = 'u'; AddCurChr();
+  character = 't'; AddCurChr();
+  character = 'c'; AddCurChr();
+  character = 'h'; AddCurChr();
+  character = 'a'; AddCurChr();
+  character = 'r'; AddCurChr();
+  kind = Function;
+  value = Void;
+  DefineSymbol();
 
-  curChr = 'e'; AddCurChr();
-  curChr = 'x'; AddCurChr();
-  curChr = 'i'; AddCurChr();
-  curChr = 't'; AddCurChr();
-  curSym = Function;
-  curVal = Void;
-  SetSym();
+  character = 'e'; AddCurChr();
+  character = 'x'; AddCurChr();
+  character = 'i'; AddCurChr();
+  character = 't'; AddCurChr();
+  kind = Function;
+  value = Void;
+  DefineSymbol();
 
-  curSym = Unknown;
-  curVal = 0;
-  nxtChr = 0;
+  kind = Unknown;
+  value = 0;
+  nextCharacter = 0;
   GetNxtChr();
   GetChr();
   GetToken();
+  activeSegment = NoSegment;
 }
 
 static void ParseNumber()
 {
-  if (curTok == Minus)
+  if (token == Minus)
   {
     GetToken();
-    if (curTok != Number)
+    if (token != Number)
     {
       Fail();
     }
-    curVal = -curVal;
+    value = -value;
     GetToken();
     return;
   }
-  if (curTok != Number)
+  if (token != Number)
   {
     Fail();
   }
@@ -729,146 +730,147 @@ static void ParseNumber()
 
 static void ParseExpression()
 {
-  if (curTok == ExclamationMark)
+  if (token == ExclamationMark)
   {
     GetToken();
     ParseExpression();
-    EmtNot();
+    EmitLogicalNegation();
   }
-  if (curTok == Minus)
+  if (token == Minus)
   {
     GetToken();
     ParseExpression();
-    EmtNeg();
+    EmitNumericalNegation();
   }
-  if (curTok == Number)
+  if (token == Number)
   {
-    EmtPushVal();
+    EmitPushValue();
     GetToken();
   }
-  if ((curTok == Variable) | (curTok == CharacterVariable))
+  if ((token == Variable) | (token == CharacterVariable))
   {
-    value = curTok; PushValue();
-    findPointer = namesPointer;
-    EmtPushFind();
+    item = token; PushValue();
+    // findPointer = namesPointer;
+    EmitPushName();
     GetToken();
-    if (curTok == LeftBracket)
+    if (token == LeftBracket)
     {
-      EmtRead();
+      EmitRead();
       GetToken();
       ParseExpression();
-      if (curTok != RightBracket)
+      if (token != RightBracket)
       {
         Fail();
       }
-      value = TopValue();
-      if (value != CharacterVariable)
+      if (TopValue() != CharacterVariable)
       {
-        EmtAddIdx();
+        EmitAddIntegerIndex();
       }
-      if (value == CharacterVariable)
+      if (TopValue() == CharacterVariable)
       {
-        EmtAddCharacterIdx();
+        EmitAddCharacterIndex();
       }
       GetToken();
     }
-    if (curTok != EqualsSign)
+    if (token != EqualsSign)
     {
-      EmtRead();
+      EmitRead();
     }
     PopValue();
   }
-  if (curTok == Function)
+  if (token == Function)
   {
-    funIdx = i;
+    item = findPointer; PushValue();
     GetToken();
-    if (curTok != LeftParenthesis)
+    if (token != LeftParenthesis)
     {
       Fail();
     }
     GetToken();
-    if (curTok != RightParenthesis)
+    if (token != RightParenthesis)
     {
       ParseExpression();
     }
-    if (curTok != RightParenthesis)
+    if (token != RightParenthesis)
     {
       Fail();
     }
-    EmtFunCall();
+    stringPointer = TopValue();
+    EmitFunctionCall();
+    PopValue();
     GetToken();
   }
-  if (curTok == LeftParenthesis)
+  if (token == LeftParenthesis)
   {
     GetToken();
     ParseExpression();
-    if (curTok != RightParenthesis)
+    if (token != RightParenthesis)
     {
       Fail();
     }
     GetToken();
   }
   operation = 0;
-  if (curTok == Plus)
+  if (token == Plus)
   {
     operation = Add;
   }
-  if (curTok == Minus)
+  if (token == Minus)
   {
     operation = Sub;
   }
-  if (curTok == Asterisk)
+  if (token == Asterisk)
   {
     operation = Mul;
   }
-  if (curTok == Slash)
+  if (token == Slash)
   {
     operation = Div;
   }
-  if (curTok == Percent)
+  if (token == Percent)
   {
     operation = Mod;
   }
-  if (curTok == Ampersand)
+  if (token == Ampersand)
   {
     operation = And;
   }
-  if (curTok == Pipe)
+  if (token == Pipe)
   {
     operation = Or;
   }
-  if (curTok == Equal)
+  if (token == Equal)
   {
     operation = Teq;
   }
-  if (curTok == NotEqual)
+  if (token == NotEqual)
   {
     operation = Tne;
   }
-  if (curTok == Less)
+  if (token == Less)
   {
     operation = Tls;
   }
-  if (curTok == LessOrEqual)
+  if (token == LessOrEqual)
   {
     operation = Tle;
   }
-  if (curTok == Greater)
+  if (token == Greater)
   {
     operation = Tgr;
   }
-  if (curTok == GreaterOrEqual)
+  if (token == GreaterOrEqual)
   {
     operation = Tge;
   }
-  if (curTok == EqualsSign)
+  if (token == EqualsSign)
   {
     operation = Assign;
   }
   if (operation)
   {
     GetToken();
-    value = operation;
+    item = operation;
     PushValue();
     ParseExpression();
     operation = TopValue();
@@ -879,78 +881,78 @@ static void ParseExpression()
 
 static void ParseBlock()
 {
-  if (curTok != LeftBrace)
+  if (token != LeftBrace)
   {
     Fail();
   }
   GetToken();
-  while (curTok != RightBrace)
+  while (token != RightBrace)
   {
-    if ((curTok == Function) | (curTok == Variable) | (curTok == CharacterVariable))
+    if ((token == Function) | (token == Variable) | (token == CharacterVariable))
     {
       ParseExpression();
       text = popEax; PutTxt();
-      if (curTok != Semicolon)
+      if (token != Semicolon)
       {
         Fail();
       }
       GetToken();
     }
-    if (curTok == Return)
+    if (token == Return)
     {
       GetToken();
-      if (curTok != Semicolon)
+      if (token != Semicolon)
       {
         ParseExpression();
         text = popEax; PutTxt();
       }
-      if (curTok != Semicolon)
+      if (token != Semicolon)
       {
         Fail();
       }
-      EmtRet();
+      EmitReturn();
       GetToken();
     }
-    if (curTok == If)
+    if (token == If)
     {
       GetToken();
-      if (curTok != LeftParenthesis)
+      if (token != LeftParenthesis)
       {
         Fail();
       }
       PushLabel();
       GetToken();
       ParseExpression();
-      if (curTok != RightParenthesis)
+      if (token != RightParenthesis)
       {
         Fail();
       }
-      EmtJmpEnd();
+      EmitJumpToEnd();
       GetToken();
       ParseBlock();
-      EmtEnd();
+      EmitEnd();
       PopValue();
     }
-    if (curTok == While)
+    if (token == While)
     {
       GetToken();
-      if (curTok != LeftParenthesis)
+      if (token != LeftParenthesis)
       {
         Fail();
       }
       PushLabel();
-      EmtBegin();
+      EmitBegin();
       GetToken();
       ParseExpression();
-      if (curTok != RightParenthesis)
+      if (token != RightParenthesis)
       {
         Fail();
       }
-      EmtJmpEnd();
+      EmitJumpToEnd();
       GetToken();
       ParseBlock();
-      EmtJmpBegin();
-      EmtEnd();
+      EmitJumpToBegin();
+      EmitEnd();
       PopValue();
     }
   }
@@ -959,142 +961,156 @@ static void ParseBlock()
 
 static void ParseDefinition()
 {
-  if (curTok == Hash)
+  if (token == Hash)
   {
     GetToken();
-    if (curTok != Include)
+    if (token != Include)
     {
       Fail();
     }
     GetToken();
-    if (curTok != Less)
+    if (token != Less)
     {
       Fail();
     }
     GetToken();
-    if (curTok != Name)
+    if (token != Name)
     {
       Fail();
     }
     GetToken();
-    if (curTok != Greater)
+    if (token != Greater)
     {
       Fail();
     }
     GetToken();
     return;
   }
-  if (curTok == Constant)
+  if (token == Constant)
   {
     GetToken();
-    if (curTok != Int)
+    if (token != Int)
     {
       Fail();
     }
     GetToken();
-    if (curTok != Name)
+    if (token != Name)
     {
       Fail();
     }
-    curSym = Constant;
-    SetSym();
+    kind = Constant;
+    DefineSymbol();
     GetToken();
-    if (curTok != EqualsSign)
+    if (token != EqualsSign)
     {
       Fail();
     }
     GetToken();
     ParseNumber();
-    items[symbolPointer + 3] = curVal;
-    if (curTok != Semicolon)
+    infos[namesPointer - 1] = value;
+    if (token != Semicolon)
     {
       Fail();
     }
     GetToken();
     return;
   }
-  if ((curTok == Static) | (curTok == Void) | (curTok == Int) | (curTok == Char))
+  if ((token == Static) | (token == Void) | (token == Int) | (token == Char))
   {
-    value = curTok;
+    item = token;
     GetToken();
-    if ((curTok == Void) | (curTok == Int) | (curTok == Char))
+    if ((token == Void) | (token == Int) | (token == Char))
     {
-      value = curTok;
+      item = token;
       GetToken();
-      if (curTok == Asterisk)
+      if (token == Asterisk)
       {
         GetToken();
       }
     }
     PushValue();
-    if (curTok != Name)
+    if (token != Name)
     {
       Fail();
     }
-    findPointer = namesPointer;
-    SetSym();
+    DefineSymbol();
     GetToken();
-    if (curTok == LeftParenthesis)
+    if (token == LeftParenthesis)
     {
-      items[symbolPointer + 2] = Function;
-      EmtTxtSeg();
-      EmtFun();
+      infos[namesPointer - 2] = Function;
+      if (activeSegment != TextSegment)
+      {
+        activeSegment = TextSegment;
+        EmitTextSegment();
+      }
+      EmitFunction();
       GetToken();
-      if (curTok != RightParenthesis)
+      if (token != RightParenthesis)
       {
         Fail();
       }
       GetToken();
       ParseBlock();
-      EmtRet();
+      EmitReturn();
       return;
     }
     if (TopValue() == Char)
     {
-      items[symbolPointer + 2] = CharacterVariable;
+      infos[namesPointer - 2] = CharacterVariable;
     }
     if (TopValue() != Char)
     {
-      items[symbolPointer + 2] = Variable;
+      infos[namesPointer - 2] = Variable;
     }
-    EmtDatSeg();
-    EmtDcl();
-    curVal = 1; // default value
-    if (curTok == LeftBracket)
+    if (activeSegment != DataSegment)
     {
-      curVal = 0;
-      EmtArrAddr();
+      activeSegment = DataSegment;
+      EmitDataSegment();
+    }
+    EmtDcl();
+    value = 1; // default value
+    if (token == LeftBracket)
+    {
+      value = 0;
+      if (TopValue() == Char)
+      {
+        EmitCharacterArrayAddress();
+      }
+      if (TopValue() != Char)
+      {
+        EmitIntegerArrayAddress();
+      }
       GetToken();
-      if (curTok == Number)
+      if (token == Number)
       {
         GetToken();
       }
-      if (curTok == RightBracket)
+      if (token == RightBracket)
       {
         GetToken();
       }
     }
     hasInit = 0;
-    if (curTok == EqualsSign)
+    if (token == EqualsSign)
     {
       hasInit = 1;
       GetToken();
-      if (curTok != String)
+      if (token != String)
       {
         Fail();
       }
-      EmtStrInt();
+      EmitCodes();
       GetToken();
     }
-    if (curTok != Semicolon)
+    if (token != Semicolon)
     {
       Fail();
     }
     if (hasInit == 0)
     {
-      EmtDup(); 
+      EmitDuplicates(); 
     }
-    putchar(10);
+    putchar(LineFeed);
     GetToken();
     PopValue();
   }
@@ -1102,7 +1118,7 @@ static void ParseDefinition()
 
 static void ParseCpl()
 {
-  while (curTok != Eof)
+  while (token != Eof)
   {
     ParseDefinition();
   }
