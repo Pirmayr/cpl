@@ -1,6 +1,3 @@
-#include <cstdio>
-#include <cstdlib>
-
 const int Add = 10;
 const int Ampersand = 38;
 const int And = 15;
@@ -75,6 +72,19 @@ const int Void = 16;
 const int While = 17;
 const int Zero = 48;
 
+static char constKeyword[] = "const";
+static char staticKeyword[] = "static";
+static char intKeyword[] = "int";
+static char charKeyword[] = "char";
+static char putcharKeyword[] = "putchar";
+static char getcharKeyword[] = "getchar";
+static char exitKeyword[] = "exit";
+static char ifKeyword[] = "if";
+static char returnKeyword[] = "return";
+static char elseKeyword[] = "else";
+static char whileKeyword[] = "while";
+static char voidKeyword[] = "void";
+
 static char addCharacterIndex[] = "call o10\n";
 static char addIntegerIndex[] = "call adi\n";
 static char beginLabel[] = "begin#:\n";
@@ -103,7 +113,7 @@ static char pushValue[] = "push #\n";
 static char read[] = "pop eax\npush dword[eax]\n";
 static char returnFromSubroutine[] = "ret\n";
 static char textSegment[] = "section '.text' code readable executable\n";
-static char* text; // text to be put out.
+static char* text; // text to be put out or symbol to be added.
 static int activeSegment;
 static int character; // the current character processed in the scanner
 static int kind; // symbol kind set in "DefineSymbol" or "FindSymbol"
@@ -588,138 +598,74 @@ static void GetToken()
   GetChr();
 }
 
+static void AddSymbol()
+{
+  i = 0;
+  character = text[i] % 256;
+  while (character)
+  {
+    AddCurChr();
+    i = i + 1;
+    character = text[i] % 256;
+  }
+  DefineSymbol();
+}
+
 static void Init()
 {
-  EmitHeader();
-
   nextLabel = 0;
   itemsPointer = infosSize;
   namesPointer = -1;
 
-  character = 'c'; AddCurChr();
-  character = 'o'; AddCurChr();
-  character = 'n'; AddCurChr();
-  character = 's'; AddCurChr();
-  character = 't'; AddCurChr();
   kind = Keyword;
+
+  text = constKeyword;
   value = Constant;
-  DefineSymbol();
+  AddSymbol();
 
-  character = 's'; AddCurChr();
-  character = 't'; AddCurChr();
-  character = 'a'; AddCurChr();
-  character = 't'; AddCurChr();
-  character = 'i'; AddCurChr();
-  character = 'c'; AddCurChr();
-  kind = Keyword;
+  text = staticKeyword;
   value = Static;
-  DefineSymbol();
+  AddSymbol();
 
-  character = 'r'; AddCurChr();
-  character = 'e'; AddCurChr();
-  character = 't'; AddCurChr();
-  character = 'u'; AddCurChr();
-  character = 'r'; AddCurChr();
-  character = 'n'; AddCurChr();
-  kind = Keyword;
+  text = returnKeyword;
   value = Return;
-  DefineSymbol();
+  AddSymbol();
 
-  character = 'i'; AddCurChr();
-  character = 'f'; AddCurChr();
-  kind = Keyword;
+  text = ifKeyword;
   value = If;
-  DefineSymbol();
+  AddSymbol();
 
-  character = 'e'; AddCurChr();
-  character = 'l'; AddCurChr();
-  character = 's'; AddCurChr();
-  character = 'e'; AddCurChr();
-  kind = Keyword;
+  text = elseKeyword;
   value = Else;
-  DefineSymbol();
+  AddSymbol();
 
-  character = 'w'; AddCurChr();
-  character = 'h'; AddCurChr();
-  character = 'i'; AddCurChr();
-  character = 'l'; AddCurChr();
-  character = 'e'; AddCurChr();
-  kind = Keyword;
+  text = whileKeyword;
   value = While;
-  DefineSymbol();
+  AddSymbol();
 
-  character = 'i'; AddCurChr();
-  character = 'n'; AddCurChr();
-  character = 'c'; AddCurChr();
-  character = 'l'; AddCurChr();
-  character = 'u'; AddCurChr();
-  character = 'd'; AddCurChr();
-  character = 'e'; AddCurChr();
-  kind = Keyword;
-  value = Include;
-  DefineSymbol();
-
-  character = 'i'; AddCurChr();
-  character = 'n'; AddCurChr();
-  character = 't'; AddCurChr();
-  kind = Keyword;
+  text = intKeyword;
   value = Int;
-  DefineSymbol();
+  AddSymbol();
 
-  character = 'c'; AddCurChr();
-  character = 'h'; AddCurChr();
-  character = 'a'; AddCurChr();
-  character = 'r'; AddCurChr();
-  kind = Keyword;
+  text = charKeyword;
   value = Char;
-  DefineSymbol();
+  AddSymbol();
 
-  character = 'v'; AddCurChr();
-  character = 'o'; AddCurChr();
-  character = 'i'; AddCurChr();
-  character = 'd'; AddCurChr();
-  kind = Keyword;
+  text = voidKeyword;
   value = Void;
-  DefineSymbol();
+  AddSymbol();
 
-  character = 'a'; AddCurChr();
-  character = 'b'; AddCurChr();
-  character = 'o'; AddCurChr();
-  character = 'r'; AddCurChr();
-  character = 't'; AddCurChr();
   kind = Function;
-  value = Void;
-  DefineSymbol();
+  value = 0;
 
-  character = 'g'; AddCurChr();
-  character = 'e'; AddCurChr();
-  character = 't'; AddCurChr();
-  character = 'c'; AddCurChr();
-  character = 'h'; AddCurChr();
-  character = 'a'; AddCurChr();
-  character = 'r'; AddCurChr();
-  kind = Function;
-  value = Int;
-  DefineSymbol();
+  text = putcharKeyword;
+  AddSymbol();
 
-  character = 'p'; AddCurChr();
-  character = 'u'; AddCurChr();
-  character = 't'; AddCurChr();
-  character = 'c'; AddCurChr();
-  character = 'h'; AddCurChr();
-  character = 'a'; AddCurChr();
-  character = 'r'; AddCurChr();
-  kind = Function;
-  value = Void;
-  DefineSymbol();
+  text = getcharKeyword;
+  AddSymbol();
 
-  character = 'e'; AddCurChr();
-  character = 'x'; AddCurChr();
-  character = 'i'; AddCurChr();
-  character = 't'; AddCurChr();
-  kind = Function;
-  value = Void;
-  DefineSymbol();
+  text = exitKeyword;
+  AddSymbol();
 
   activeSegment = NoSegment;
   value = 0;
@@ -993,31 +939,6 @@ static void ParseBlock()
 
 static void ParseDefinition()
 {
-  if (token == Hash)
-  {
-    GetToken();
-    if (token != Include)
-    {
-      Fail();
-    }
-    GetToken();
-    if (token != Less)
-    {
-      Fail();
-    }
-    GetToken();
-    if (token != Name)
-    {
-      Fail();
-    }
-    GetToken();
-    if (token != Greater)
-    {
-      Fail();
-    }
-    GetToken();
-    return;
-  }
   if (token == Constant)
   {
     GetToken();
@@ -1146,6 +1067,7 @@ static void ParseDefinition()
 
 static void ParseCpl()
 {
+  EmitHeader();
   while (token != Eof)
   {
     ParseDefinition();

@@ -19,7 +19,10 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CPL.cpp" />
+    <ClCompile Include="CPL.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="Wrapper.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="size.txt" />
