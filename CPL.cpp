@@ -721,13 +721,13 @@ static void Init()
   value = Void;
   DefineSymbol();
 
-  kind = Unknown;
+  activeSegment = NoSegment;
   value = 0;
+  kind = Unknown;
   nextCharacter = 0;
   GetNxtChr();
   GetChr();
   GetToken();
-  activeSegment = NoSegment;
 }
 
 static void ParseNumber()
