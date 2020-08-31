@@ -1,3 +1,6 @@
+#include <cstdio>
+#include <cstdlib>
+
 const int Add = 10;
 const int Ampersand = 38;
 const int And = 15;
@@ -84,6 +87,7 @@ static char returnKeyword[] = "return";
 static char elseKeyword[] = "else";
 static char whileKeyword[] = "while";
 static char voidKeyword[] = "void";
+static char includeKeyword[] = "include";
 
 static char addCharacterIndex[] = "call o10\n";
 static char addIntegerIndex[] = "call adi\n";
@@ -623,6 +627,10 @@ static void Init()
   value = Constant;
   AddSymbol();
 
+  text = includeKeyword;
+  value = Include;
+  AddSymbol();
+
   text = staticKeyword;
   value = Static;
   AddSymbol();
@@ -939,6 +947,31 @@ static void ParseBlock()
 
 static void ParseDefinition()
 {
+  if (token == Hash)
+  {
+    GetToken();
+    if (token != Include)
+    {
+      Fail();
+    }
+    GetToken();
+    if (token != Less)
+    {
+      Fail();
+    }
+    GetToken();
+    if (token != Name)
+    {
+      Fail();
+    }
+    GetToken();
+    if (token != Greater)
+    {
+      Fail();
+    }
+    GetToken();
+    return;
+  }
   if (token == Constant)
   {
     GetToken();
